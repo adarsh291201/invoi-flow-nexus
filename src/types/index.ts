@@ -70,3 +70,10 @@ export interface DashboardStats {
     count: number;
   }>;
 }
+
+export interface InvoiceTemplate {
+  id: string;
+  name: string;
+  description: string;
+  fields: string[];
+}

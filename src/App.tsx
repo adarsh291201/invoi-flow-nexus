@@ -9,6 +9,10 @@ import MainLayout from './components/Layout/MainLayout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Invoices from './pages/Invoices';
+import Accounts from './pages/Accounts';
+import InvoiceGeneration from './pages/InvoiceGeneration';
+import InvoicePreview from './pages/InvoicePreview';
+import Settings from './pages/Settings';
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,6 +29,10 @@ const App = () => (
             <Route path="/" element={<MainLayout />}>
               <Route index element={<Dashboard />} />
               <Route path="invoices" element={<Invoices />} />
+              <Route path="accounts" element={<Accounts />} />
+              <Route path="invoice/generate" element={<InvoiceGeneration />} />
+              <Route path="invoice/:id/preview" element={<InvoicePreview />} />
+              <Route path="settings" element={<Settings />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             </Route>
             <Route path="*" element={<NotFound />} />

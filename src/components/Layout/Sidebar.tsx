@@ -24,12 +24,9 @@ const Sidebar = () => {
   const navigation = [
     { name: 'Dashboard', href: '/', icon: LayoutDashboard, roles: ['L1', 'L2', 'L3', 'Admin'] },
     { name: 'Invoices', href: '/invoices', icon: FileText, roles: ['L1', 'L2', 'L3', 'Admin'] },
+    { name: 'Accounts', href: '/accounts', icon: Calculator, roles: ['L1', 'L2', 'L3', 'Admin'] },
     { name: 'Generate Invoice', href: '/invoice/generate', icon: PlusCircle, roles: ['L1'] },
-    { name: 'Project Rates', href: '/rates', icon: Calculator, roles: ['L1', 'L2', 'Admin'] },
-    { name: 'Templates', href: '/templates', icon: FileImage, roles: ['L1', 'Admin'] },
-    { name: 'Audit Logs', href: '/audit', icon: Activity, roles: ['L2', 'L3', 'Admin'] },
-    { name: 'Reports', href: '/reports', icon: BarChart3, roles: ['L2', 'L3', 'Admin'] },
-    { name: 'Admin', href: '/admin', icon: Settings, roles: ['Admin'] },
+    { name: 'Settings', href: '/settings', icon: Settings, roles: ['L1', 'L2', 'L3', 'Admin'] },
   ];
 
   const filteredNavigation = navigation.filter(item => 

@@ -4,39 +4,35 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { RootState } from '../store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Textarea } from '../components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
-import { Badge } from '../components/ui/badge';
-import { AlertCircle, FileText, Send, ArrowLeft, Calculator, Calendar } from 'lucide-react';
 import { Alert, AlertDescription } from '../components/ui/alert';
+import { Badge } from '../components/ui/badge';
 import { useToast } from '../hooks/use-toast';
-import { Account, Project, Resource } from '../types';
+import { 
+  InvoiceConfiguration, 
+  InvoiceTemplate, 
+  InvoiceSectionType,
+  ProjectInvoiceData,
+  InvoiceGenerationRequest,
+  InvoicePreview
+} from '../types/invoice';
+import InvoiceService from '../services/invoiceService';
+import TemplateSelector from '../components/Invoice/TemplateSelector';
+import SectionSelector from '../components/Invoice/SectionSelector';
+import InvoiceSectionComponent from '../components/Invoice/InvoiceSectionComponent';
+import CommentModal from '../components/Invoice/CommentModal';
+import PDFPreviewModal from '../components/Invoice/PDFPreviewModal';
+import { 
+  AlertCircle, 
+  ArrowLeft, 
+  FileText, 
+  Download, 
+  MessageSquare, 
+  Save, 
+  CheckCircle,
+  Plus
+} from 'lucide-react';
 
-interface InvoiceTemplate {
-  id: string;
-  name: string;
-  description: string;
-  fields: string[];
-}
-
-interface InvoiceData {
-  accountId: string;
-  projectId: string;
-  month: string;
-  year: number;
-  templateId: string;
-  amount: number;
-  description: string;
-  lineItems: Array<{
-    description: string;
-    quantity: number;
-    rate: number;
-    amount: number;
-  }>;
-  comments: string;
-}
+// Enhanced Invoice Generation with Object-Driven Approach
 
 const InvoiceGeneration = () => {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -44,163 +40,215 @@ const InvoiceGeneration = () => {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
-  const [accounts, setAccounts] = useState<Account[]>([]);
-  const [templates, setTemplates] = useState<InvoiceTemplate[]>([]);
-  const [invoiceData, setInvoiceData] = useState<InvoiceData>({
-    accountId: '',
-    projectId: '',
-    month: new Date().toLocaleString('default', { month: 'long' }),
-    year: new Date().getFullYear(),
-    templateId: '',
-    amount: 0,
-    description: '',
-    lineItems: [],
-    comments: ''
-  });
-  const [hasUnresolvedComments, setHasUnresolvedComments] = useState(false);
-  const [isGenerating, setIsGenerating] = useState(false);
+  // Enhanced state management
+  const [step, setStep] = useState<'template' | 'sections' | 'configure'>('template');
+  const [selectedTemplate, setSelectedTemplate] = useState<InvoiceTemplate | null>(null);
+  const [selectedSections, setSelectedSections] = useState<InvoiceSectionType[]>([]);
+  const [projectData, setProjectData] = useState<ProjectInvoiceData | null>(null);
+  const [invoiceConfig, setInvoiceConfig] = useState<InvoiceConfiguration | null>(null);
+  const [availableTemplates, setAvailableTemplates] = useState<any[]>([]);
+  
+  // Modal states
+  const [isCommentModalOpen, setIsCommentModalOpen] = useState(false);
+  const [isPDFPreviewOpen, setIsPDFPreviewOpen] = useState(false);
+  const [previewData, setPreviewData] = useState<InvoicePreview | null>(null);
+  
+  // Loading states
+  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
+  const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [isAutoSaving, setIsAutoSaving] = useState(false);
 
+  // Initialize data and templates
   useEffect(() => {
-    // Mock data
-    const mockAccounts: Account[] = [
-      {
-        id: 'acc001',
-        name: 'Client Alpha Corp',
-        projects: [
-          {
-            id: 'p101',
-            name: 'Alpha - Migration',
-            accountId: 'acc001',
-            resources: [
-              { id: 'r1', name: 'John Doe', role: 'Senior Developer', rate: 85, weekendRate: 120, otRate: 110, projectId: 'p101' },
-              { id: 'r2', name: 'Jane Smith', role: 'Tech Lead', rate: 95, weekendRate: 140, otRate: 125, projectId: 'p101' },
-            ]
-          }
-        ]
-      },
-      {
-        id: 'acc002',
-        name: 'Client Beta Solutions',
-        projects: [
-          {
-            id: 'p201',
-            name: 'Beta - Development',
-            accountId: 'acc002',
-            resources: [
-              { id: 'r4', name: 'Sarah Wilson', role: 'Full Stack Developer', rate: 80, weekendRate: 115, otRate: 105, projectId: 'p201' },
-              { id: 'r5', name: 'David Brown', role: 'DevOps Engineer', rate: 90, weekendRate: 130, otRate: 115, projectId: 'p201' },
-            ]
-          }
-        ]
-      }
-    ];
-
-    const mockTemplates: InvoiceTemplate[] = [
-      {
-        id: 'template1',
-        name: 'Standard Template',
-        description: 'Basic invoice template with standard fields',
-        fields: ['project', 'period', 'amount', 'description']
-      },
-      {
-        id: 'template2',
-        name: 'Detailed Template',
-        description: 'Comprehensive template with itemized breakdown',
-        fields: ['project', 'period', 'amount', 'lineItems', 'resources', 'description']
-      },
-      {
-        id: 'template3',
-        name: 'Time & Materials',
-        description: 'Template for hourly-based billing',
-        fields: ['project', 'period', 'timesheet', 'rates', 'amount', 'description']
-      }
-    ];
-
-    setAccounts(mockAccounts);
-    setTemplates(mockTemplates);
-
-    // Pre-populate if project ID is in URL
-    const projectId = searchParams.get('project');
-    if (projectId) {
-      const account = mockAccounts.find(acc => 
-        acc.projects.some(proj => proj.id === projectId)
-      );
-      const project = account?.projects.find(proj => proj.id === projectId);
+    const initializeData = async () => {
+      setIsLoadingData(true);
       
-      if (account && project) {
-        setInvoiceData(prev => ({
-          ...prev,
-          accountId: account.id,
-          projectId: project.id,
-          description: `Services for ${project.name} - ${prev.month} ${prev.year}`
-        }));
-        autoCalculateAmount(project);
+      try {
+        // Load available templates
+        const templates = InvoiceService.getAvailableTemplates();
+        setAvailableTemplates(templates);
+
+        // Pre-populate if project ID is in URL
+        const projectId = searchParams.get('project');
+        if (projectId) {
+          const data = await InvoiceService.getProjectInvoiceData(projectId);
+          setProjectData(data);
+        }
+      } catch (error) {
+        toast({
+          title: "Error Loading Data",
+          description: "Failed to load project data. Please try again.",
+          variant: "destructive"
+        });
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+
+    initializeData();
+  }, [searchParams, toast]);
+
+  // Auto-save functionality
+  useEffect(() => {
+    if (invoiceConfig && step === 'configure') {
+      const autoSaveTimer = setInterval(async () => {
+        if (invoiceConfig.metadata.autoSaveEnabled) {
+          setIsAutoSaving(true);
+          try {
+            await InvoiceService.autoSaveConfiguration(invoiceConfig);
+          } catch (error) {
+            console.error('Auto-save failed:', error);
+          } finally {
+            setIsAutoSaving(false);
+          }
+        }
+      }, 30000); // 30 seconds
+
+      return () => clearInterval(autoSaveTimer);
+    }
+  }, [invoiceConfig, step]);
+
+  // Template selection handler
+  const handleTemplateSelect = (template: InvoiceTemplate) => {
+    const templateConfig = availableTemplates.find(t => t.id === template);
+    if (templateConfig && projectData) {
+      setSelectedTemplate(template);
+      
+      // Auto-select sections based on template and available data
+      const autoSelectedSections: InvoiceSectionType[] = [];
+      
+      // Add required sections
+      autoSelectedSections.push(...templateConfig.requiredSections);
+      
+      // Add default sections that have data
+      templateConfig.defaultSections.forEach(section => {
+        if (!autoSelectedSections.includes(section)) {
+          const hasData = getAvailableDataForSection(section).length > 0;
+          if (hasData) {
+            autoSelectedSections.push(section);
+          }
+        }
+      });
+      
+      setSelectedSections(autoSelectedSections);
+      setStep('sections');
+    }
+  };
+
+  // Section toggle handler
+  const handleSectionToggle = (section: InvoiceSectionType, enabled: boolean) => {
+    setSelectedSections(prev => 
+      enabled 
+        ? [...prev, section]
+        : prev.filter(s => s !== section)
+    );
+  };
+
+  // Get available data for a section type
+  const getAvailableDataForSection = (sectionType: InvoiceSectionType): any[] => {
+    if (!projectData) return [];
+    
+    switch (sectionType) {
+      case 'standardHours': return projectData.standardHours;
+      case 'overtimeHours': return projectData.overtimeHours;
+      case 'weeklyWorkingHours': return projectData.weeklyWorkingHours;
+      case 'productionSupport': return projectData.productionSupport;
+      case 'services': return projectData.services;
+      case 'licenses': return projectData.licenses;
+      default: return [];
+    }
+  };
+
+  // Proceed to configuration step
+  const handleProceedToConfiguration = () => {
+    if (selectedTemplate && projectData && selectedSections.length > 0) {
+      const config = InvoiceService.createInvoiceConfiguration(
+        projectData,
+        selectedTemplate,
+        selectedSections
+      );
+      setInvoiceConfig(config);
+      setStep('configure');
+    }
+  };
+
+  // Section data update handler
+  const handleSectionDataUpdate = (sectionId: string, data: any[]) => {
+    if (invoiceConfig) {
+      const updatedConfig = InvoiceService.updateSectionData(invoiceConfig, sectionId, data);
+      setInvoiceConfig(updatedConfig);
+    }
+  };
+
+  // Add section handler
+  const handleAddSection = (sectionType: InvoiceSectionType) => {
+    if (invoiceConfig) {
+      const updatedConfig = InvoiceService.addSectionToConfiguration(invoiceConfig, sectionType);
+      setInvoiceConfig(updatedConfig);
+      setSelectedSections(prev => [...prev, sectionType]);
+    }
+  };
+
+  // Remove section handler
+  const handleRemoveSection = (sectionId: string) => {
+    if (invoiceConfig) {
+      const section = invoiceConfig.sections.find(s => s.id === sectionId);
+      if (section && !section.required) {
+        const updatedConfig = InvoiceService.removeSectionFromConfiguration(invoiceConfig, sectionId);
+        setInvoiceConfig(updatedConfig);
+        setSelectedSections(prev => prev.filter(s => s !== section.type));
       }
     }
+  };
 
-    // Mock check for unresolved comments
-    setHasUnresolvedComments(Math.random() > 0.7);
-  }, [searchParams]);
-
-  const autoCalculateAmount = (project: Project) => {
-    // Mock calculation based on resources
-    const baseHours = 160; // Standard month
-    const totalAmount = project.resources.reduce((sum, resource) => {
-      return sum + (resource.rate * baseHours);
-    }, 0);
+  // Comment submission handler
+  const handleSubmitComment = async (commentText: string, type: 'question' | 'clarification' | 'correction') => {
+    if (!invoiceConfig) return;
     
-    setInvoiceData(prev => ({
-      ...prev,
-      amount: totalAmount,
-      lineItems: project.resources.map(resource => ({
-        description: `${resource.name} - ${resource.role}`,
-        quantity: baseHours,
-        rate: resource.rate,
-        amount: resource.rate * baseHours
-      }))
-    }));
-  };
-
-  const getSelectedAccount = () => {
-    return accounts.find(acc => acc.id === invoiceData.accountId);
-  };
-
-  const getSelectedProject = () => {
-    const account = getSelectedAccount();
-    return account?.projects.find(proj => proj.id === invoiceData.projectId);
-  };
-
-  const getAvailableProjects = () => {
-    const account = getSelectedAccount();
-    return account?.projects || [];
-  };
-
-  const handleAccountChange = (accountId: string) => {
-    setInvoiceData(prev => ({
-      ...prev,
-      accountId,
-      projectId: '', // Reset project when account changes
-      lineItems: [],
-      amount: 0
-    }));
-  };
-
-  const handleProjectChange = (projectId: string) => {
-    const account = getSelectedAccount();
-    const project = account?.projects.find(proj => proj.id === projectId);
+    setIsSubmittingComment(true);
     
-    setInvoiceData(prev => ({
-      ...prev,
-      projectId,
-      description: project ? `Services for ${project.name} - ${prev.month} ${prev.year}` : ''
-    }));
-
-    if (project) {
-      autoCalculateAmount(project);
+    try {
+      const updatedConfig = InvoiceService.addComment(invoiceConfig, commentText);
+      setInvoiceConfig(updatedConfig);
+      
+      // Mock PMO notification
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      toast({
+        title: "Comment Sent to PMO",
+        description: "Your comment has been sent to PMO for review. Invoice generation is blocked until resolved.",
+      });
+      
+      setIsCommentModalOpen(false);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to send comment. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSubmittingComment(false);
     }
   };
 
-  const handleGenerateInvoice = async () => {
+  // PDF generation handler
+  const handleGeneratePDF = async () => {
+    if (!invoiceConfig) return;
+    
+    // Validate configuration
+    const validation = InvoiceService.validateInvoiceConfiguration(invoiceConfig);
+    if (!validation.isValid) {
+      toast({
+        title: "Validation Error",
+        description: "Please fix all validation errors before generating PDF.",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    // Check for unresolved comments
+    const hasUnresolvedComments = invoiceConfig.comments.some(c => c.status === 'pending');
     if (hasUnresolvedComments) {
       toast({
         title: "Cannot Generate Invoice",
@@ -210,66 +258,126 @@ const InvoiceGeneration = () => {
       return;
     }
 
-    if (!invoiceData.accountId || !invoiceData.projectId || !invoiceData.templateId) {
+    setIsGeneratingPDF(true);
+    
+    try {
+      const request: InvoiceGenerationRequest = {
+        configuration: invoiceConfig,
+        format: 'pdf',
+        includeAttachments: false
+      };
+      
+      const response = await InvoiceService.generateInvoicePDF(request);
+      
+      if (response.success) {
+        // Generate preview
+        const preview = await InvoiceService.generatePreview(invoiceConfig);
+        setPreviewData(preview);
+        setIsPDFPreviewOpen(true);
+        
+        toast({
+          title: "Invoice Generated Successfully",
+          description: "PDF has been generated and is ready for download.",
+        });
+      } else {
+        throw new Error(response.errors?.join(', ') || 'Generation failed');
+      }
+    } catch (error) {
       toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
+        title: "Generation Failed",
+        description: error instanceof Error ? error.message : "Failed to generate invoice PDF.",
         variant: "destructive"
       });
-      return;
+    } finally {
+      setIsGeneratingPDF(false);
     }
-
-    setIsGenerating(true);
-    
-    // Mock generation process
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    toast({
-      title: "Invoice Generated Successfully",
-      description: "Invoice has been generated and submitted for L2 approval.",
-    });
-
-    setIsGenerating(false);
-    navigate('/invoices');
   };
 
-  const sendCommentToPMO = () => {
-    if (!invoiceData.comments.trim()) {
+  // Download handler
+  const handleDownloadPDF = () => {
+    if (previewData) {
+      // Mock download - in real app, this would trigger actual download
       toast({
-        title: "No Comment",
-        description: "Please enter a comment before sending to PMO.",
-        variant: "destructive"
+        title: "Download Started",
+        description: "Invoice PDF download has started.",
       });
-      return;
+      
+      setIsPDFPreviewOpen(false);
+      navigate('/invoices');
     }
-
-    toast({
-      title: "Comment Sent to PMO",
-      description: "Your comment has been sent to PMO for review. Invoice generation is blocked until resolved.",
-      variant: "default"
-    });
-
-    setHasUnresolvedComments(true);
   };
+
+  // Get available data for section selector
+  const getAvailableDataMapping = (): Record<InvoiceSectionType, any[]> => {
+    if (!projectData) return {} as Record<InvoiceSectionType, any[]>;
+    
+    return {
+      standardHours: projectData.standardHours,
+      overtimeHours: projectData.overtimeHours,
+      weeklyWorkingHours: projectData.weeklyWorkingHours,
+      productionSupport: projectData.productionSupport,
+      services: projectData.services,
+      licenses: projectData.licenses
+    };
+  };
+
+  if (isLoadingData) {
+    return (
+      <div className="space-y-6 max-w-6xl">
+        <div className="flex items-center space-x-4">
+          <Button variant="outline" onClick={() => navigate('/accounts')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Accounts
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Generate Invoice</h1>
+            <p className="text-muted-foreground">Loading project data...</p>
+          </div>
+        </div>
+        
+        <Card className="shadow-card">
+          <CardContent className="p-8 text-center">
+            <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <p className="text-muted-foreground">Loading invoice data...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-6 max-w-4xl">
+    <div className="space-y-6 max-w-6xl">
       {/* Header */}
-      <div className="flex items-center space-x-4">
-        <Button variant="outline" onClick={() => navigate('/accounts')}>
-          <ArrowLeft className="h-4 w-4 mr-2" />
-          Back to Accounts
-        </Button>
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">Generate Invoice</h1>
-          <p className="text-muted-foreground">
-            Create a new invoice for the current month
-          </p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-4">
+          <Button variant="outline" onClick={() => navigate('/accounts')}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Accounts
+          </Button>
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Generate Invoice</h1>
+            <p className="text-muted-foreground">
+              {projectData ? `${projectData.projectName} - ${projectData.period.month} ${projectData.period.year}` : 'Create a new invoice'}
+            </p>
+          </div>
+        </div>
+        
+        {/* Progress Indicator */}
+        <div className="flex items-center space-x-2">
+          <Badge variant={step === 'template' ? 'default' : step !== 'template' ? 'secondary' : 'outline'}>
+            1. Template
+          </Badge>
+          <Badge variant={step === 'sections' ? 'default' : step === 'configure' ? 'secondary' : 'outline'}>
+            2. Sections
+          </Badge>
+          <Badge variant={step === 'configure' ? 'default' : 'outline'}>
+            3. Configure
+          </Badge>
         </div>
       </div>
 
       {/* Unresolved Comments Alert */}
-      {hasUnresolvedComments && (
+      {invoiceConfig && invoiceConfig.comments.some(c => c.status === 'pending') && (
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -278,254 +386,185 @@ const InvoiceGeneration = () => {
         </Alert>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main Form */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Account & Project Selection */}
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle>Account & Project</CardTitle>
-              <CardDescription>Select the account and project for this invoice</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="account">Account</Label>
-                <Select value={invoiceData.accountId} onValueChange={handleAccountChange}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select an account" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {accounts.map(account => (
-                      <SelectItem key={account.id} value={account.id}>
-                        {account.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+      {/* Auto-save indicator */}
+      {isAutoSaving && (
+        <Alert>
+          <Save className="h-4 w-4" />
+          <AlertDescription>Auto-saving changes...</AlertDescription>
+        </Alert>
+      )}
 
-              <div>
-                <Label htmlFor="project">Project</Label>
-                <Select 
-                  value={invoiceData.projectId} 
-                  onValueChange={handleProjectChange}
-                  disabled={!invoiceData.accountId}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select a project" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {getAvailableProjects().map(project => (
-                      <SelectItem key={project.id} value={project.id}>
-                        {project.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+      {/* Step 1: Template Selection */}
+      {step === 'template' && (
+        <TemplateSelector
+          templates={availableTemplates}
+          selectedTemplate={selectedTemplate}
+          onTemplateSelect={handleTemplateSelect}
+        />
+      )}
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="month">Month</Label>
-                  <Input
-                    value={invoiceData.month}
-                    onChange={(e) => setInvoiceData(prev => ({ ...prev, month: e.target.value }))}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="year">Year</Label>
-                  <Input
-                    type="number"
-                    value={invoiceData.year}
-                    onChange={(e) => setInvoiceData(prev => ({ ...prev, year: parseInt(e.target.value) }))}
-                  />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Template Selection */}
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle>Invoice Template</CardTitle>
-              <CardDescription>Choose a template for your invoice</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-3">
-                {templates.map(template => (
-                  <div
-                    key={template.id}
-                    className={`border rounded-lg p-4 cursor-pointer transition-colors ${
-                      invoiceData.templateId === template.id 
-                        ? 'border-primary bg-primary/5' 
-                        : 'border-border hover:border-primary/50'
-                    }`}
-                    onClick={() => setInvoiceData(prev => ({ ...prev, templateId: template.id }))}
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-medium">{template.name}</h4>
-                        <p className="text-sm text-muted-foreground">{template.description}</p>
-                      </div>
-                      <FileText className="h-5 w-5 text-muted-foreground" />
-                    </div>
-                    <div className="flex flex-wrap gap-1 mt-2">
-                      {template.fields.map(field => (
-                        <Badge key={field} variant="secondary" className="text-xs">
-                          {field}
-                        </Badge>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Invoice Details */}
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle>Invoice Details</CardTitle>
-              <CardDescription>Configure the invoice data and line items</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <Label htmlFor="amount">Total Amount ($)</Label>
-                <div className="relative">
-                  <Calculator className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="number"
-                    value={invoiceData.amount}
-                    onChange={(e) => setInvoiceData(prev => ({ ...prev, amount: parseFloat(e.target.value) || 0 }))}
-                    className="pl-10"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  value={invoiceData.description}
-                  onChange={(e) => setInvoiceData(prev => ({ ...prev, description: e.target.value }))}
-                  placeholder="Enter invoice description..."
-                  className="min-h-20"
-                />
-              </div>
-
-              {/* Line Items */}
-              {invoiceData.lineItems.length > 0 && (
-                <div>
-                  <Label>Line Items</Label>
-                  <div className="mt-2 border rounded-lg overflow-hidden">
-                    <table className="w-full">
-                      <thead className="bg-muted/50">
-                        <tr>
-                          <th className="text-left p-3">Description</th>
-                          <th className="text-left p-3">Qty</th>
-                          <th className="text-left p-3">Rate</th>
-                          <th className="text-left p-3">Amount</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {invoiceData.lineItems.map((item, index) => (
-                          <tr key={index} className="border-t">
-                            <td className="p-3">{item.description}</td>
-                            <td className="p-3">{item.quantity}</td>
-                            <td className="p-3">${item.rate}</td>
-                            <td className="p-3 font-medium">${item.amount.toLocaleString()}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Comments Section */}
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle>Comments for PMO</CardTitle>
-              <CardDescription>Add comments if issues are found during generation</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Textarea
-                value={invoiceData.comments}
-                onChange={(e) => setInvoiceData(prev => ({ ...prev, comments: e.target.value }))}
-                placeholder="Enter any issues or comments for PMO review..."
-                className="min-h-24"
-              />
-              <Button variant="outline" onClick={sendCommentToPMO}>
-                <Send className="h-4 w-4 mr-2" />
-                Send Comment to PMO
-              </Button>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Sidebar - Preview & Actions */}
+      {/* Step 2: Section Selection */}
+      {step === 'sections' && (
         <div className="space-y-6">
-          {/* Preview */}
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle>Invoice Preview</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Account:</span>
-                  <span>{getSelectedAccount()?.name || 'Not selected'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Project:</span>
-                  <span>{getSelectedProject()?.name || 'Not selected'}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Period:</span>
-                  <span>{invoiceData.month} {invoiceData.year}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Template:</span>
-                  <span>{templates.find(t => t.id === invoiceData.templateId)?.name || 'Not selected'}</span>
-                </div>
-                <div className="flex justify-between font-medium pt-2 border-t">
-                  <span>Total Amount:</span>
-                  <span>${invoiceData.amount.toLocaleString()}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Actions */}
-          <Card className="shadow-card">
-            <CardHeader>
-              <CardTitle>Actions</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <Button
-                className="w-full bg-gradient-primary"
-                onClick={handleGenerateInvoice}
-                disabled={hasUnresolvedComments || isGenerating}
-              >
-                {isGenerating ? (
-                  <>Generating...</>
-                ) : (
-                  <>
-                    <FileText className="h-4 w-4 mr-2" />
-                    Generate Invoice
-                  </>
-                )}
-              </Button>
-              
-              <Button variant="outline" className="w-full">
-                <Calendar className="h-4 w-4 mr-2" />
-                Save as Draft
-              </Button>
-            </CardContent>
-          </Card>
+          <SectionSelector
+            selectedTemplate={availableTemplates.find(t => t.id === selectedTemplate) || null}
+            selectedSections={selectedSections}
+            availableData={getAvailableDataMapping()}
+            onSectionToggle={handleSectionToggle}
+          />
+          
+          <div className="flex justify-between">
+            <Button variant="outline" onClick={() => setStep('template')}>
+              Back to Template
+            </Button>
+            <Button 
+              onClick={handleProceedToConfiguration}
+              disabled={selectedSections.length === 0}
+              className="bg-gradient-primary"
+            >
+              Configure Invoice
+            </Button>
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* Step 3: Invoice Configuration */}
+      {step === 'configure' && invoiceConfig && (
+        <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+          {/* Main Content */}
+          <div className="lg:col-span-3 space-y-6">
+            {/* Invoice Sections */}
+            {invoiceConfig.sections.map((section) => (
+              <InvoiceSectionComponent
+                key={section.id}
+                section={section}
+                onDataUpdate={handleSectionDataUpdate}
+                onRemoveSection={handleRemoveSection}
+              />
+            ))}
+            
+            {/* Add Section Button */}
+            <Card className="shadow-card">
+              <CardContent className="p-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="font-medium">Add Additional Section</h4>
+                  <div className="flex space-x-2">
+                    {Object.keys(getAvailableDataMapping()).map((sectionType) => {
+                      const isAlreadyAdded = selectedSections.includes(sectionType as InvoiceSectionType);
+                      if (isAlreadyAdded) return null;
+                      
+                      return (
+                        <Button
+                          key={sectionType}
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleAddSection(sectionType as InvoiceSectionType)}
+                        >
+                          <Plus className="h-3 w-3 mr-1" />
+                          {sectionType.replace(/([A-Z])/g, ' $1').trim()}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sidebar */}
+          <div className="space-y-6">
+            {/* Invoice Summary */}
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="text-lg">Invoice Summary</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Template:</span>
+                    <span className="capitalize">{selectedTemplate?.replace('-', ' ')}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Sections:</span>
+                    <span>{invoiceConfig.sections.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Comments:</span>
+                    <span>{invoiceConfig.comments.length}</span>
+                  </div>
+                </div>
+                
+                <div className="border-t pt-4 space-y-2">
+                  <div className="flex justify-between text-sm">
+                    <span>Subtotal:</span>
+                    <span>${invoiceConfig.totals.subtotal.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span>Tax (10%):</span>
+                    <span>${invoiceConfig.totals.tax.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between font-bold border-t pt-2">
+                    <span>Total:</span>
+                    <span>${invoiceConfig.totals.total.toLocaleString()}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Actions */}
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle className="text-lg">Actions</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsCommentModalOpen(true)}
+                  className="w-full"
+                >
+                  <MessageSquare className="h-4 w-4 mr-2" />
+                  Add Comment
+                </Button>
+                
+                <Button
+                  onClick={handleGeneratePDF}
+                  disabled={isGeneratingPDF || invoiceConfig.comments.some(c => c.status === 'pending')}
+                  className="w-full bg-gradient-primary"
+                >
+                  {isGeneratingPDF ? (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                      <span>Generating...</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center space-x-2">
+                      <FileText className="h-4 w-4" />
+                      <span>Generate PDF</span>
+                    </div>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      )}
+
+      {/* Modals */}
+      <CommentModal
+        isOpen={isCommentModalOpen}
+        onClose={() => setIsCommentModalOpen(false)}
+        onSubmitComment={handleSubmitComment}
+        existingComments={invoiceConfig?.comments || []}
+        isSubmitting={isSubmittingComment}
+      />
+
+      <PDFPreviewModal
+        isOpen={isPDFPreviewOpen}
+        onClose={() => setIsPDFPreviewOpen(false)}
+        preview={previewData}
+        onDownload={handleDownloadPDF}
+        isLoading={isGeneratingPDF}
+      />
     </div>
   );
 };

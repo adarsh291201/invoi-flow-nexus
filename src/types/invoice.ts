@@ -1,79 +1,88 @@
-// Enhanced Invoice Types with Object-Driven Approach
+// Enhanced Invoice Types with 7-Template System
+import { Resource } from '../types/index';
 
-export type InvoiceTemplate = 'standard' | 'time-material' | 'fixed-bid' | 'mixed-hybrid';
+export type InvoiceTemplate = 'template1' | 'template2' | 'template3' | 'template4' | 'template5' | 'template6' | 'template7';
 
-export type InvoiceSectionType = 
-  | 'standardHours' 
-  | 'overtimeHours' 
-  | 'weeklyWorkingHours'
-  | 'productionSupport' 
-  | 'services' 
-  | 'licenses';
-
-export interface InvoiceSection {
+// Template-specific data interfaces
+export interface Template1Data {
   id: string;
-  type: InvoiceSectionType;
-  name: string;
-  enabled: boolean;
-  required: boolean;
-  order: number;
-  headers: string[];
-  data: InvoiceSectionData[];
-  total: number;
-  editable: boolean;
-}
-
-export interface InvoiceSectionData {
-  id: string;
-  [key: string]: any; // Dynamic fields based on section type
-}
-
-// Standard Hours Section Data
-export interface StandardHoursData extends InvoiceSectionData {
+  sNo: number;
   name: string;
   project: string;
   role: string;
   rate: number;
-  hoursWorked: number;
+  hrsWorked: number;
   amount: number;
 }
 
-// Overtime Hours Section Data
-export interface OvertimeHoursData extends InvoiceSectionData {
+export interface Template2Data {
+  id: string;
+  sNo: number;
   name: string;
-  project: string;
   role: string;
   rate: number;
-  hoursWorked: number;
+  hrsWorked: number;
   amount: number;
 }
 
-// Weekly Working Hours Section Data
-export interface WeeklyWorkingHoursData extends InvoiceSectionData {
-  name: string;
-  project: string;
-  hoursWorked: number;
+export interface Template3Data {
+  id: string;
+  sNo: number;
+  description: string;
   amount: number;
 }
 
-// Production Support Section Data
-export interface ProductionSupportData extends InvoiceSectionData {
-  name: string;
-  project: string;
-  hoursWorked: number;
-  amount: number;
-}
-
-// Services Section Data
-export interface ServicesData extends InvoiceSectionData {
-  service: string;
+export interface Template4Data {
+  id: string;
+  sNo: number;
+  services: string;
   cost: number;
 }
 
-// Licenses Section Data
-export interface LicensesData extends InvoiceSectionData {
-  licenseName: string;
-  cost: number;
+export interface Template5Data {
+  id: string;
+  sNo: number;
+  description: string;
+  project: string;
+  unit: string;
+  amount: number;
+}
+
+export interface Template6Data {
+  id: string;
+  sNo: number;
+  name: string;
+  role: string;
+  rate: number;
+  hrsWorked: number;
+  amount: number;
+}
+
+export interface Template7MainData {
+  id: string;
+  sNo: number;
+  name: string;
+  role: string;
+  rate: number;
+  hrsWorked: number;
+  amount: number;
+}
+
+export interface Template7ProductionSupportData {
+  id: string;
+  sNo: number;
+  name: string;
+  role: string;
+  rate: number;
+  hrsWorked: number;
+  amount: number;
+}
+
+// Template 6 additional fields
+export interface Template6Additional {
+  futureAccountCreditCurrentMonth: number;
+  futureAccountCreditPreviousMonth: number;
+  futureAccountCreditEndOfMonth: number;
 }
 
 export interface InvoiceComment {
@@ -86,6 +95,18 @@ export interface InvoiceComment {
   type: 'question' | 'clarification' | 'correction';
 }
 
+// Common invoice data for all templates
+export interface InvoiceCommonData {
+  companyName: string;
+  companyAddress: string;
+  billTo: string;
+  invoiceNumber: string;
+  invoiceDate: string;
+  paymentTerms: string;
+  phoneNumber: string;
+  billingPeriod: string;
+}
+
 export interface InvoiceConfiguration {
   id: string;
   projectId: string;
@@ -93,16 +114,30 @@ export interface InvoiceConfiguration {
   template: InvoiceTemplate;
   month: string;
   year: number;
-  sections: InvoiceSection[];
-  clientInfo: {
-    name: string;
-    address: string;
-    email: string;
+  commonData: InvoiceCommonData;
+  templateData: {
+    template1?: Template1Data[];
+    template2?: Template2Data[];
+    template3?: Template3Data[];
+    template4?: Template4Data[];
+    template5?: Template5Data[];
+    template6?: {
+      data: Template6Data[];
+      additional: Template6Additional;
+    };
+    template7?: {
+      mainTable: Template7MainData[];
+      productionSupport: Template7ProductionSupportData[];
+    };
   };
   totals: {
     subtotal: number;
     tax: number;
     total: number;
+    tableSpecificTotals?: {
+      mainTable?: number;
+      productionSupport?: number;
+    };
   };
   comments: InvoiceComment[];
   status: 'draft' | 'pending-approval' | 'approved' | 'generated';
@@ -143,10 +178,10 @@ export interface InvoiceTemplateConfig {
   id: InvoiceTemplate;
   name: string;
   description: string;
-  defaultSections: InvoiceSectionType[];
-  requiredSections: InvoiceSectionType[];
-  customizable: boolean;
+  headers: string[];
   icon: string;
+  hasMultipleTables?: boolean;
+  additionalFields?: boolean;
 }
 
 export interface ProjectInvoiceData {
@@ -155,12 +190,6 @@ export interface ProjectInvoiceData {
   projectName: string;
   accountName: string;
   resources: Resource[];
-  standardHours: StandardHoursData[];
-  overtimeHours: OvertimeHoursData[];
-  weeklyWorkingHours: WeeklyWorkingHoursData[];
-  productionSupport: ProductionSupportData[];
-  services: ServicesData[];
-  licenses: LicensesData[];
   period: {
     month: string;
     year: number;
@@ -174,5 +203,10 @@ export interface InvoicePreview {
   warnings: string[];
 }
 
-// Re-export from main types for compatibility
-export type { Resource } from '../types';
+// Check if invoice already exists for project/month
+export interface InvoiceExistenceCheck {
+  exists: boolean;
+  invoiceId?: string;
+  previewUrl?: string;
+  status?: string;
+}

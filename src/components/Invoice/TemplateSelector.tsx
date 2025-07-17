@@ -65,26 +65,31 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
                     
                     <div className="space-y-2">
                       <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-1">Default Sections:</p>
+                        <p className="text-xs font-medium text-muted-foreground mb-1">Headers:</p>
                         <div className="flex flex-wrap gap-1">
-                          {template.defaultSections.map(section => (
-                            <Badge key={section} variant="secondary" className="text-xs">
-                              {section.replace(/([A-Z])/g, ' $1').trim()}
+                          {template.headers.map(header => (
+                            <Badge key={header} variant="secondary" className="text-xs">
+                              {header}
                             </Badge>
                           ))}
                         </div>
                       </div>
                       
-                      {template.requiredSections.length > 0 && (
+                      {template.hasMultipleTables && (
                         <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-1">Required:</p>
-                          <div className="flex flex-wrap gap-1">
-                            {template.requiredSections.map(section => (
-                              <Badge key={section} variant="outline" className="text-xs">
-                                {section.replace(/([A-Z])/g, ' $1').trim()}
-                              </Badge>
-                            ))}
-                          </div>
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Features:</p>
+                          <Badge variant="outline" className="text-xs">
+                            Multiple Tables
+                          </Badge>
+                        </div>
+                      )}
+                      
+                      {template.additionalFields && (
+                        <div>
+                          <p className="text-xs font-medium text-muted-foreground mb-1">Features:</p>
+                          <Badge variant="outline" className="text-xs">
+                            Additional Fields
+                          </Badge>
                         </div>
                       )}
                     </div>

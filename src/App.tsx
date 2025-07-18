@@ -31,6 +31,7 @@ const App = () => (
               <Route path="invoices" element={<Invoices />} />
               <Route path="accounts" element={<Accounts />} />
               <Route path="invoice/generate" element={<InvoiceGeneration />} />
+              <Route path="invoice/generate/:templateId" element={<InvoiceGeneration />} />
               <Route path="invoice/:id/preview" element={<InvoicePreview />} />
               <Route path="settings" element={<Settings />} />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

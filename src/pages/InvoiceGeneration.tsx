@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams, useParams } from 'react-router-dom';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
@@ -24,13 +24,19 @@ import {
   Eye,
   Clock
 } from 'lucide-react';
+import { useDispatch, useSelector } from 'react-redux';
+import { setInvoices } from '../store/slices/invoiceSlice';
+import { RootState } from '../store/store';
 
 type Step = 'template' | 'configure' | 'review';
 
 const InvoiceGeneration: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { templateId } = useParams();
   const { toast } = useToast();
+  const dispatch = useDispatch();
+  const invoices = useSelector((state: RootState) => state.invoices.invoices);
 
   // State management
   const [step, setStep] = useState<Step>('template');
@@ -55,16 +61,10 @@ const InvoiceGeneration: React.FC = () => {
           lastAutoSave: new Date().toISOString()
         }
       });
-      
-      toast({
-        title: "Auto-saved",
-        description: "Your progress has been automatically saved.",
-        duration: 2000,
-      });
-    }, 30000); // 30 seconds
+    }, 2000); // 30 seconds
 
     return () => clearInterval(autoSaveInterval);
-  }, [invoiceConfig, autoSaveEnabled, toast]);
+  }, [invoiceConfig, autoSaveEnabled]);
 
   // Initialize page data
   useEffect(() => {
@@ -114,11 +114,19 @@ const InvoiceGeneration: React.FC = () => {
     initializePage();
   }, [searchParams, navigate, toast]);
 
+  useEffect(() => {
+    if (templateId) {
+      setSelectedTemplate(templateId as InvoiceTemplate);
+      setStep('configure');
+    }
+  }, [templateId]);
+
   // Handle template selection
   const handleTemplateSelect = async (template: InvoiceTemplate) => {
     if (!projectData) return;
 
     setSelectedTemplate(template);
+    navigate(`/invoice/generate/${template}?project=${projectData.projectId}`);
     
     // Create initial invoice configuration
     const config: InvoiceConfiguration = {
@@ -205,6 +213,7 @@ const InvoiceGeneration: React.FC = () => {
 
   // Handle PDF generation
   const handleGeneratePDF = async () => {
+    console.log('handleGeneratePDF', invoiceConfig , "payload");
     if (!invoiceConfig) return;
 
     // Validate required fields
@@ -226,8 +235,25 @@ const InvoiceGeneration: React.FC = () => {
       toast({
         title: "PDF Generated",
         description: "Your invoice PDF has been generated successfully.",
+        variant: "success",
       });
-      
+      // Add the generated invoice to Redux store
+      dispatch(setInvoices([...invoices, {
+        id: invoiceConfig.id,
+        project: projectData?.projectName || '',
+        projectId: invoiceConfig.projectId,
+        client: projectData?.accountName || '',
+        status: 'Draft',
+        amount: invoiceConfig.totals.total,
+        month: invoiceConfig.month,
+        year: invoiceConfig.year,
+        createdBy: invoiceConfig.metadata.createdBy,
+        createdAt: invoiceConfig.metadata.createdAt,
+        dueDate: '',
+        history: [
+          { id: Date.now().toString(), action: 'Generated', by: invoiceConfig.metadata.createdBy, byId: 'current', date: new Date().toISOString() }
+        ],
+      }]));
       setShowPDFPreview(true);
     } catch (error) {
       toast({
@@ -242,6 +268,7 @@ const InvoiceGeneration: React.FC = () => {
 
   // Handle comment addition
   const handleAddComment = (commentText: string) => {
+    console.log('handleAddComment', commentText);
     if (!invoiceConfig) return;
 
     const newComment = {
@@ -322,7 +349,7 @@ const InvoiceGeneration: React.FC = () => {
             Back to Accounts
           </Button>
           <div>
-            <h1 className="text-2xl font-bold">Invoice Generation</h1>
+            <h1 className="text-2xl font-bold headline-blue">Invoice Generation</h1>
             <p className="text-muted-foreground">
               {projectData ? `${projectData.projectName} - ${projectData.period.month} ${projectData.period.year}` : 'Create a new invoice'}
             </p>
@@ -378,7 +405,7 @@ const InvoiceGeneration: React.FC = () => {
                 <Button variant="outline" onClick={() => setStep('template')}>
                   Back to Templates
                 </Button>
-                <Button onClick={handleSaveDraft} disabled={loading}>
+                <Button onClick={handleSaveDraft} disabled={loading} variant="blue">
                   <Save className="h-4 w-4 mr-2" />
                   Save Draft
                 </Button>
@@ -396,6 +423,7 @@ const InvoiceGeneration: React.FC = () => {
                 <Button 
                   onClick={handleGeneratePDF}
                   disabled={loading || invoiceConfig.status === 'pending-approval'}
+                  variant="blue"
                 >
                   <FileText className="h-4 w-4 mr-2" />
                   Generate PDF

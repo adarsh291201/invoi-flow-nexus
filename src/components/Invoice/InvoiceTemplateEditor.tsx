@@ -30,6 +30,9 @@ import {
   Calculator,
   Info
 } from 'lucide-react';
+import { Calendar } from '../ui/calendar';
+import { Popover, PopoverTrigger, PopoverContent } from '../ui/popover';
+import { Calendar as CalendarIcon } from 'lucide-react';
 
 interface InvoiceTemplateEditorProps {
   configuration: InvoiceConfiguration;
@@ -436,11 +439,24 @@ const InvoiceTemplateEditor: React.FC<InvoiceTemplateEditorProps> = ({
           </div>
           <div className="space-y-2">
             <Label>Invoice Date</Label>
-            <Input
-              type="date"
-              value={configuration.commonData.invoiceDate}
-              onChange={(e) => handleCommonDataUpdate('invoiceDate', e.target.value)}
-            />
+            <Popover>
+              <PopoverTrigger asChild>
+                <button type="button" className="flex items-center border rounded-md px-3 py-2 bg-background w-full">
+                  <span className="flex-1 text-left">
+                    {configuration.commonData.invoiceDate ? new Date(configuration.commonData.invoiceDate).toLocaleDateString() : 'Pick a date'}
+                  </span>
+                  <CalendarIcon className="h-5 w-5 text-muted-foreground ml-2" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0">
+                <Calendar
+                  mode="single"
+                  selected={configuration.commonData.invoiceDate ? new Date(configuration.commonData.invoiceDate) : undefined}
+                  onSelect={date => handleCommonDataUpdate('invoiceDate', date ? date.toISOString().split('T')[0] : '')}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
           </div>
           <div className="space-y-2">
             <Label>Payment Terms</Label>

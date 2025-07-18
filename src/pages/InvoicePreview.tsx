@@ -113,6 +113,7 @@ const InvoicePreview = () => {
     toast({
       title: "Invoice Approved",
       description: `Invoice has been approved and moved to ${newStatus}`,
+      variant: "success",
     });
 
     // Update local state
@@ -261,7 +262,7 @@ const InvoicePreview = () => {
                 {/* Header */}
                 <div className="flex justify-between items-start">
                   <div>
-                    <h2 className="text-2xl font-bold">INVOICE</h2>
+                    <h2 className="text-2xl font-bold headline-blue">INVOICE</h2>
                     <p className="text-muted-foreground">#{invoice.id}</p>
                   </div>
                   <div className="text-right">
@@ -374,7 +375,7 @@ const InvoicePreview = () => {
                     </Button>
                   )}
                   {!canApprove() && !canReject() && (
-                    <Button onClick={() => setShowCommentForm(false)}>
+                    <Button onClick={() => setShowCommentForm(false)} variant="blue">
                       <MessageSquare className="h-4 w-4 mr-2" />
                       Add Comment
                     </Button>
@@ -446,7 +447,7 @@ const InvoicePreview = () => {
               {!showCommentForm && (canApprove() || canReject()) && (
                 <Button 
                   className="w-full" 
-                  variant="outline"
+                  variant="blue"
                   onClick={() => setShowCommentForm(true)}
                 >
                   <MessageSquare className="h-4 w-4 mr-2" />
@@ -457,6 +458,7 @@ const InvoicePreview = () => {
               {canDispatch() && (
                 <Button 
                   className="w-full bg-gradient-primary" 
+                  variant="blue"
                   onClick={handleDispatch}
                 >
                   <Send className="h-4 w-4 mr-2" />

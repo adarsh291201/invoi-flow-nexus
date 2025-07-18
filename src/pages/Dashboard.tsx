@@ -78,7 +78,7 @@ const Dashboard = () => {
     <div className="space-y-6">
       {/* Header */}
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">
+        <h1 className="text-3xl font-bold tracking-tight headline-blue">
           {getGreeting()}, {user?.name}
         </h1>
         <p className="text-muted-foreground">
@@ -157,8 +157,8 @@ const Dashboard = () => {
               <Button
                 key={index}
                 asChild
-                variant={action.primary ? "default" : "outline"}
-                className={action.primary ? "bg-gradient-primary" : ""}
+                variant="blue"
+                className={action.primary ? "" : ""}
               >
                 <Link to={action.href}>{action.label}</Link>
               </Button>

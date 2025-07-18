@@ -42,6 +42,7 @@ const Login = () => {
         toast({
           title: "Login successful",
           description: `Welcome back, ${user.name}!`,
+          variant: "success",
         });
       } else {
         toast({
@@ -57,7 +58,7 @@ const Login = () => {
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/5 to-accent">
       <Card className="w-full max-w-md shadow-elevated">
         <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">InvoiceFlow</CardTitle>
+          <CardTitle className="text-2xl font-bold text-center headline-blue">InvoiceFlow</CardTitle>
           <CardDescription className="text-center">
             Sign in to your account to manage invoices
           </CardDescription>
@@ -86,7 +87,7 @@ const Login = () => {
                 required
               />
             </div>
-            <Button type="submit" className="w-full bg-gradient-primary">
+            <Button type="submit" className="w-full" variant="blue">
               Sign In
             </Button>
           </form>

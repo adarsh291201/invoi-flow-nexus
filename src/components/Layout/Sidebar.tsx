@@ -34,10 +34,13 @@ const Sidebar = () => {
   );
 
   return (
-    <div className={cn(
-      "bg-nav-background text-nav-foreground shadow-nav transition-all duration-300",
-      collapsed ? "w-16" : "w-64"
-    )}>
+    <div
+      style={{ backgroundColor: "rgb(6, 65, 115)" }}
+      className={cn(
+        "text-nav-foreground shadow-nav transition-all duration-300",
+        collapsed ? "w-16" : "w-64"
+      )}
+    >
       <div className="flex items-center justify-between p-4 border-b border-nav-foreground/10">
         {!collapsed && (
           <h1 className="text-xl font-bold">InvoiceFlow</h1>
@@ -60,7 +63,7 @@ const Sidebar = () => {
                 to={item.href}
                 className={({ isActive }) =>
                   cn(
-                    "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors",
+                    "flex items-center px-3 py-2 text-sm font-medium rounded-md transition-colors sidebar-nav-link",
                     "hover:bg-nav-foreground/10",
                     isActive
                       ? "bg-primary text-primary-foreground"

@@ -23,22 +23,22 @@ const Invoices = () => {
   useEffect(() => {
     // Mock invoice data
     const mockInvoices: Invoice[] = [
-      {
-        id: 'inv001',
-        project: 'Alpha - Migration',
-        projectId: 'p101',
-        client: 'Client Alpha',
-        status: 'Pending L2',
-        amount: 12500,
-        month: 'June',
-        year: 2025,
-        createdBy: 'Alice Johnson',
-        createdAt: '2025-06-01T10:00:00Z',
-        dueDate: '2025-06-15T00:00:00Z',
-        history: [
-          { id: '1', action: 'Generated', by: 'Alice Johnson', byId: 'u1', date: '2025-06-01T10:00:00Z' },
-        ],
-      },
+      // {
+      //   id: 'inv001',
+      //   project: 'Alpha - Migration',
+      //   projectId: 'p101',
+      //   client: 'Client Alpha',
+      //   status: 'Pending L2',
+      //   amount: 12500,
+      //   month: 'June',
+      //   year: 2025,
+      //   createdBy: 'Alice Johnson',
+      //   createdAt: '2025-06-01T10:00:00Z',
+      //   dueDate: '2025-06-15T00:00:00Z',
+      //   history: [
+      //     { id: '1', action: 'Generated', by: 'Alice Johnson', byId: 'u1', date: '2025-06-01T10:00:00Z' },
+      //   ],
+      // },
       {
         id: 'inv002',
         project: 'Beta - Development',

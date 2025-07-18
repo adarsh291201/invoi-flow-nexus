@@ -84,6 +84,7 @@ All colors MUST be HSL.
     --sidebar-border: 220 13% 91%;
 
     --sidebar-ring: 217.2 91.2% 59.8%;
+    --headline-blue: 6, 65, 115;
   }
 
   .dark {
@@ -155,5 +156,32 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  .headline-blue {
+    color: rgb(var(--headline-blue)) !important;
+  }
+  .btn-blue {
+    background-color: rgb(var(--headline-blue)) !important;
+    color: #fff !important;
+    border: none !important;
+  }
+  .btn-blue:hover {
+    background-color: rgba(var(--headline-blue), 0.9) !important;
+  }
+}
+
+@layer components {
+  .sidebar-nav-link:hover {
+    color: #ffe790 !important;
+  }
+  .sidebar-nav-link.active,
+  .sidebar-nav-link[aria-current="page"] {
+    color: #fff !important;
+    background-color: #fff !important;
+    /* Set text color to sidebar blue for contrast */
+    color: rgb(6, 65, 115) !important;
   }
 }

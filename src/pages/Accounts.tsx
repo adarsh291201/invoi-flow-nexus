@@ -21,6 +21,7 @@ import { Account, Project, Resource } from '../types';
 
 const Accounts = () => {
   const { user } = useSelector((state: RootState) => state.auth);
+  const { invoices } = useSelector((state: RootState) => state.invoices);
   const [searchTerm, setSearchTerm] = useState('');
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null);
@@ -97,8 +98,14 @@ const Accounts = () => {
   };
 
   const hasInvoiceForCurrentMonth = (projectId: string) => {
-    // Mock check - in real app, this would check against invoice data
-    return Math.random() > 0.5;
+    const now = new Date();
+    const currentMonth = now.toLocaleString('default', { month: 'long' });
+    const currentYear = now.getFullYear();
+    return invoices.some(
+      inv => inv.projectId === projectId &&
+        inv.month === currentMonth &&
+        Number(inv.year) === currentYear
+    );
   };
 
   const getTotalProjectResources = (project: Project) => {
@@ -116,7 +123,7 @@ const Accounts = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Accounts</h1>
+          <h1 className="text-3xl font-bold tracking-tight headline-blue">Accounts</h1>
           <p className="text-muted-foreground">
             Manage client accounts, projects, and resource rates
           </p>
@@ -200,7 +207,7 @@ const Accounts = () => {
                             </>
                           ) : (
                             user?.role === 'L1' && (
-                              <Button size="sm" className="bg-gradient-primary" asChild>
+                              <Button size="sm" variant="blue" className="" asChild>
                                 <Link to={`/invoice/generate?project=${project.id}`}>
                                   <Plus className="h-4 w-4 mr-1" />
                                   Add Invoice for {getCurrentMonth()}

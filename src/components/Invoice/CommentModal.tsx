@@ -168,7 +168,7 @@ const CommentModal: React.FC<CommentModalProps> = ({
           <Button 
             onClick={handleSubmit} 
             disabled={!commentText.trim() || isSubmitting}
-            className="bg-gradient-primary"
+            variant="blue"
           >
             {isSubmitting ? (
               <div className="flex items-center space-x-2">

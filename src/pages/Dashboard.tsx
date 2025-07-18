@@ -79,7 +79,7 @@ const Dashboard = () => {
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight headline-blue">
-          {getGreeting()}, {user?.name}
+          Hi!!! {user?.name}
         </h1>
         <p className="text-muted-foreground">
           Here's what's happening with your invoices today.

@@ -31,6 +31,8 @@ export interface Resource {
   weekendRate: number;
   otRate: number;
   projectId: string;
+  startDate?: string;
+  endDate?: string;
 }
 
 export interface Invoice {

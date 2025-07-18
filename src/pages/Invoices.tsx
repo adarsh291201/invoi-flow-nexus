@@ -18,7 +18,7 @@ const Invoices = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const dispatch = useDispatch();
   const { toast } = useToast();
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
 
   useEffect(() => {
     // Mock invoice data
@@ -140,11 +140,22 @@ const Invoices = () => {
           </p>
         </div>
         <div className="flex items-center space-x-2">
-          <Button variant="outline" onClick={() => setViewMode(viewMode === 'table' ? 'cards' : 'table')}>
-            {viewMode === 'table' ? 'Card View' : 'Table View'}
-          </Button>
+          <div className="flex space-x-2 mr-4">
+            <button
+              className={`px-4 py-2 rounded font-medium transition-colors border ${viewMode === 'table' ? 'bg-[rgb(6,65,115)] text-white border-[rgb(6,65,115)]' : 'bg-white text-[rgb(6,65,115)] border-[rgb(6,65,115)]'}`}
+              onClick={() => setViewMode('table')}
+            >
+              Table View
+            </button>
+            <button
+              className={`px-4 py-2 rounded font-medium transition-colors border ${viewMode === 'cards' ? 'bg-[rgb(6,65,115)] text-white border-[rgb(6,65,115)]' : 'bg-white text-[rgb(6,65,115)] border-[rgb(6,65,115)]'}`}
+              onClick={() => setViewMode('cards')}
+            >
+              Card View
+            </button>
+          </div>
           {user?.role === 'L1' && (
-            <Button asChild className="bg-gradient-primary">
+            <Button asChild variant="blue">
               <Link to="/invoice/generate">Generate Invoice</Link>
             </Button>
           )}

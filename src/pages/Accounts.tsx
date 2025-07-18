@@ -14,10 +14,14 @@ import {
   Plus, 
   Eye, 
   Download, 
-  Search 
+  Search,
+  ChevronDown,
+  Calendar as CalendarIcon
 } from 'lucide-react';
+import { Calendar } from '../components/ui/calendar';
 import { Link } from 'react-router-dom';
 import { Account, Project, Resource } from '../types';
+import { Popover, PopoverTrigger, PopoverContent } from '../components/ui/popover';
 
 const Accounts = () => {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -25,6 +29,7 @@ const Accounts = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null);
+  const [resourceEdits, setResourceEdits] = useState<Record<string, any>>({});
 
   useEffect(() => {
     // Mock account data
@@ -38,8 +43,8 @@ const Accounts = () => {
             name: 'Alpha - Migration',
             accountId: 'acc001',
             resources: [
-              { id: 'r1', name: 'John Doe', role: 'Senior Developer', rate: 85, weekendRate: 120, otRate: 110, projectId: 'p101' },
-              { id: 'r2', name: 'Jane Smith', role: 'Tech Lead', rate: 95, weekendRate: 140, otRate: 125, projectId: 'p101' },
+              { id: 'r1', name: 'John Doe', role: 'Senior Developer', rate: 85, weekendRate: 120, otRate: 110, projectId: 'p101', startDate: '2024-06-01', endDate: '2024-12-31' },
+              { id: 'r2', name: 'Jane Smith', role: 'Tech Lead', rate: 95, weekendRate: 140, otRate: 125, projectId: 'p101', startDate: '2024-06-01', endDate: '2024-12-31' },
             ]
           },
           {
@@ -47,7 +52,7 @@ const Accounts = () => {
             name: 'Alpha - Support',
             accountId: 'acc001',
             resources: [
-              { id: 'r3', name: 'Mike Johnson', role: 'Support Engineer', rate: 60, weekendRate: 85, otRate: 75, projectId: 'p102' },
+              { id: 'r3', name: 'Mike Johnson', role: 'Support Engineer', rate: 60, weekendRate: 85, otRate: 75, projectId: 'p102', startDate: '2024-06-01', endDate: '2024-12-31' },
             ]
           }
         ]
@@ -61,8 +66,8 @@ const Accounts = () => {
             name: 'Beta - Development',
             accountId: 'acc002',
             resources: [
-              { id: 'r4', name: 'Sarah Wilson', role: 'Full Stack Developer', rate: 80, weekendRate: 115, otRate: 105, projectId: 'p201' },
-              { id: 'r5', name: 'David Brown', role: 'DevOps Engineer', rate: 90, weekendRate: 130, otRate: 115, projectId: 'p201' },
+              { id: 'r4', name: 'Sarah Wilson', role: 'Full Stack Developer', rate: 80, weekendRate: 115, otRate: 105, projectId: 'p201', startDate: '2024-06-01', endDate: '2024-12-31' },
+              { id: 'r5', name: 'David Brown', role: 'DevOps Engineer', rate: 90, weekendRate: 130, otRate: 115, projectId: 'p201', startDate: '2024-06-01', endDate: '2024-12-31' },
             ]
           }
         ]
@@ -76,7 +81,7 @@ const Accounts = () => {
             name: 'Gamma - Consulting',
             accountId: 'acc003',
             resources: [
-              { id: 'r6', name: 'Emily Davis', role: 'Senior Consultant', rate: 100, weekendRate: 150, otRate: 130, projectId: 'p301' },
+              { id: 'r6', name: 'Emily Davis', role: 'Senior Consultant', rate: 100, weekendRate: 150, otRate: 130, projectId: 'p301', startDate: '2024-06-01', endDate: '2024-12-31' },
             ]
           }
         ]
@@ -118,6 +123,70 @@ const Accounts = () => {
     return Math.round(total / project.resources.length);
   };
 
+  const handleResourceChange = (resourceId: string, field: string, value: any) => {
+    setResourceEdits(prev => ({
+      ...prev,
+      [resourceId]: {
+        ...prev[resourceId],
+        [field]: value
+      }
+    }));
+  };
+
+  const handleSaveResourceRates = (projectId: string, resources: Resource[]) => {
+    // Simulate API call
+    const updated = resources.map(r => ({
+      ...r,
+      ...resourceEdits[r.id]
+    }));
+    console.log(updated, 'updated' );
+    // Here you would call your API and update the backend
+    // For now, just update local state
+    setAccounts(prev => prev.map(acc => ({
+      ...acc,
+      projects: acc.projects.map(p =>
+        p.id === projectId ? { ...p, resources: updated } : p
+      )
+    })));
+    // Optionally clear edits
+    setResourceEdits(prev => {
+      const newEdits = { ...prev };
+      resources.forEach(r => { delete newEdits[r.id]; });
+      return newEdits;
+    });
+  };
+
+  // Validation: check if all required fields are filled for all resources
+  const isMatrixValid = (resources: Resource[]) => {
+    return resources.every(resource => {
+      const edit = resourceEdits[resource.id] || {};
+      const rate = edit.rate ?? resource.rate;
+      const weekendRate = edit.weekendRate ?? resource.weekendRate;
+      const otRate = edit.otRate ?? resource.otRate;
+      const startDate = edit.startDate ?? resource.startDate;
+      const endDate = edit.endDate ?? resource.endDate;
+      return rate && weekendRate && otRate && startDate && endDate;
+    });
+  };
+
+  // Build payload for API
+  const buildRateMatrixPayload = (resources: Resource[]) => {
+    return resources.map(resource => {
+      const edit = resourceEdits[resource.id] || {};
+      return {
+        id: resource.id,
+        name: resource.name,
+        role: resource.role,
+        rate: edit.rate ?? resource.rate,
+        weekendRate: edit.weekendRate ?? resource.weekendRate,
+        otRate: edit.otRate ?? resource.otRate,
+        startDate: edit.startDate ?? resource.startDate,
+        endDate: edit.endDate ?? resource.endDate,
+        projectId: resource.projectId,
+      };
+    });
+  };
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -149,7 +218,10 @@ const Accounts = () => {
       <div className="space-y-4">
         {filteredAccounts.map((account) => (
           <Card key={account.id} className="shadow-card">
-            <CardHeader>
+            <CardHeader
+              className="cursor-pointer select-none"
+              onClick={() => setExpandedAccount(expandedAccount === account.id ? null : account.id)}
+            >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
                   <Building2 className="h-6 w-6 text-primary" />
@@ -160,15 +232,11 @@ const Accounts = () => {
                     </CardDescription>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  onClick={() => setExpandedAccount(
-                    expandedAccount === account.id ? null : account.id
-                  )}
-                >
-                  <FolderOpen className="h-4 w-4 mr-2" />
-                  {expandedAccount === account.id ? 'Collapse' : 'Expand'}
-                </Button>
+                <div className="flex items-center">
+                  <ChevronDown
+                    className={`h-6 w-6 text-muted-foreground transition-transform duration-200 ${expandedAccount === account.id ? 'rotate-180' : ''}`}
+                  />
+                </div>
               </div>
             </CardHeader>
 
@@ -230,22 +298,125 @@ const Accounts = () => {
                                 <th className="text-left p-2">Standard Rate</th>
                                 <th className="text-left p-2">Weekend Rate</th>
                                 <th className="text-left p-2">OT Rate</th>
+                                <th className="text-left p-2">Start Date</th>
+                                <th className="text-left p-2">End Date</th>
                               </tr>
                             </thead>
                             <tbody>
-                              {project.resources.map((resource) => (
-                                <tr key={resource.id} className="border-b">
-                                  <td className="p-2 font-medium">{resource.name}</td>
-                                  <td className="p-2">
-                                    <Badge variant="secondary">{resource.role}</Badge>
-                                  </td>
-                                  <td className="p-2">${resource.rate}/hr</td>
-                                  <td className="p-2">${resource.weekendRate}/hr</td>
-                                  <td className="p-2">${resource.otRate}/hr</td>
-                                </tr>
-                              ))}
+                              {project.resources.map((resource) => {
+                                const isEditable = user?.role === 'L1' || user?.role === 'Admin';
+                                const edit = resourceEdits[resource.id] || {};
+                                return (
+                                  <tr key={resource.id} className="border-b">
+                                    <td className="p-2 font-medium">{resource.name}</td>
+                                    <td className="p-2">
+                                      <Badge variant="secondary">{resource.role}</Badge>
+                                    </td>
+                                    <td className="p-2">
+                                      {isEditable ? (
+                                        <Input
+                                          type="number"
+                                          value={edit.rate ?? resource.rate}
+                                          onChange={e => handleResourceChange(resource.id, 'rate', e.target.value)}
+                                          className="w-24"
+                                        />
+                                      ) : (
+                                        <>${resource.rate}/hr</>
+                                      )}
+                                    </td>
+                                    <td className="p-2">
+                                      {isEditable ? (
+                                        <Input
+                                          type="number"
+                                          value={edit.weekendRate ?? resource.weekendRate}
+                                          onChange={e => handleResourceChange(resource.id, 'weekendRate', e.target.value)}
+                                          className="w-24"
+                                        />
+                                      ) : (
+                                        <>${resource.weekendRate}/hr</>
+                                      )}
+                                    </td>
+                                    <td className="p-2">
+                                      {isEditable ? (
+                                        <Input
+                                          type="number"
+                                          value={edit.otRate ?? resource.otRate}
+                                          onChange={e => handleResourceChange(resource.id, 'otRate', e.target.value)}
+                                          className="w-24"
+                                        />
+                                      ) : (
+                                        <>${resource.otRate}/hr</>
+                                      )}
+                                    </td>
+                                    <td className="p-2">
+                                      {isEditable ? (
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <button type="button" className="flex items-center border rounded-md px-3 py-2 bg-background w-full">
+                                              <span className="flex-1 text-left">
+                                                {edit.startDate ?? resource.startDate ? new Date(edit.startDate ?? resource.startDate).toLocaleDateString() : 'Pick a date'}
+                                              </span>
+                                              <CalendarIcon className="h-5 w-5 text-muted-foreground ml-2" />
+                                            </button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-auto p-0">
+                                            <Calendar
+                                              mode="single"
+                                              selected={edit.startDate ?? resource.startDate ? new Date(edit.startDate ?? resource.startDate) : undefined}
+                                              onSelect={date => date && handleResourceChange(resource.id, 'startDate', date.toISOString().split('T')[0])}
+                                              initialFocus
+                                            />
+                                          </PopoverContent>
+                                        </Popover>
+                                      ) : (
+                                        <>{resource.startDate ? new Date(resource.startDate).toLocaleDateString() : '-'}</>
+                                      )}
+                                    </td>
+                                    <td className="p-2">
+                                      {isEditable ? (
+                                        <Popover>
+                                          <PopoverTrigger asChild>
+                                            <button type="button" className="flex items-center border rounded-md px-3 py-2 bg-background w-full">
+                                              <span className="flex-1 text-left">
+                                                {edit.endDate ?? resource.endDate ? new Date(edit.endDate ?? resource.endDate).toLocaleDateString() : 'Pick a date'}
+                                              </span>
+                                              <CalendarIcon className="h-5 w-5 text-muted-foreground ml-2" />
+                                            </button>
+                                          </PopoverTrigger>
+                                          <PopoverContent className="w-auto p-0">
+                                            <Calendar
+                                              mode="single"
+                                              selected={edit.endDate ?? resource.endDate ? new Date(edit.endDate ?? resource.endDate) : undefined}
+                                              onSelect={date => date && handleResourceChange(resource.id, 'endDate', date.toISOString().split('T')[0])}
+                                              initialFocus
+                                            />
+                                          </PopoverContent>
+                                        </Popover>
+                                      ) : (
+                                        <>{resource.endDate ? new Date(resource.endDate).toLocaleDateString() : '-'}</>
+                                      )}
+                                    </td>
+                                  </tr>
+                                );
+                              })}
                             </tbody>
                           </table>
+                          {(user?.role === 'L1' || user?.role === 'Admin') && (
+                            <div className="flex justify-end mt-2">
+                              <Button
+                                size="sm"
+                                variant="blue"
+                                onClick={() => {
+                                  const payload = buildRateMatrixPayload(project.resources);
+                                  handleSaveResourceRates(project.id, project.resources);
+                                  // You can use 'payload' for your API call later
+                                }}
+                                disabled={!isMatrixValid(project.resources)}
+                              >
+                                Save Rate Matrix
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       </div>
 

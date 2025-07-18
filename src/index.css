@@ -85,6 +85,9 @@ All colors MUST be HSL.
 
     --sidebar-ring: 217.2 91.2% 59.8%;
     --headline-blue: 6, 65, 115;
+    --project-blue: 6, 65, 115;
+    --ring: 6 65 115; /* for focus ring */
+    --input-focus: 6 65 115; /* for input border on focus */
   }
 
   .dark {
@@ -183,5 +186,11 @@ All colors MUST be HSL.
     background-color: #fff !important;
     /* Set text color to sidebar blue for contrast */
     color: rgb(6, 65, 115) !important;
+  }
+  input:focus, textarea:focus, select:focus, .focus\:ring, .focus\:ring-2, .focus\:ring-offset-2, .focus-visible:focus {
+    --tw-ring-color: rgb(var(--project-blue)) !important;
+    border-color: rgb(var(--project-blue)) !important;
+    box-shadow: 0 0 0 2px rgb(var(--project-blue), 0.2);
+    outline: none !important;
   }
 }

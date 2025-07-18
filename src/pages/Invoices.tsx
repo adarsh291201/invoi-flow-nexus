@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { setInvoices, setFilters, updateInvoiceStatus } from '../store/slices/invoiceSlice';
@@ -12,13 +12,110 @@ import { Eye, MessageSquare, Check, X, Filter, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Invoice, InvoiceStatus } from '../types';
 import { useToast } from '../hooks/use-toast';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerFooter,
+  DrawerClose,
+} from '../components/ui/drawer';
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from '../components/ui/accordion';
+import { Checkbox } from '../components/ui/checkbox';
+import { Filter as FilterIcon } from 'lucide-react';
+
+function FilterSection({
+  col,
+  label,
+  options,
+  selected,
+  onChange,
+}: {
+  col: string;
+  label: string;
+  options: string[];
+  selected: string[];
+  onChange: (vals: string[]) => void;
+}) {
+  const allChecked = selected.length === options.length && options.length > 0;
+  // const someChecked = selected.length > 0 && selected.length < options.length; // no longer needed
+  return (
+    <AccordionItem value={col} key={col}>
+      <AccordionTrigger>{label}</AccordionTrigger>
+      <AccordionContent>
+        {/* All Checkbox (no indeterminate state) */}
+        <div className="flex items-center space-x-2 mb-2">
+          <Checkbox
+            checked={allChecked}
+            onCheckedChange={checked => {
+              onChange(checked ? [...options] : []);
+            }}
+            id={`filter-${col}-all`}
+          />
+          <label htmlFor={`filter-${col}-all`}>All</label>
+        </div>
+        {/* Individual Options */}
+        {options.map(val => (
+          <div key={val} className="flex items-center space-x-2 mb-2">
+            <Checkbox
+              checked={selected.includes(val)}
+              onCheckedChange={checked => {
+                onChange(
+                  checked
+                    ? [...selected, val]
+                    : selected.filter(v => v !== val)
+                );
+              }}
+              id={`filter-${col}-${val}`}
+            />
+            <label htmlFor={`filter-${col}-${val}`}>{val}</label>
+          </div>
+        ))}
+      </AccordionContent>
+    </AccordionItem>
+  );
+}
 
 const Invoices = () => {
   const { invoices, filters } = useSelector((state: RootState) => state.invoices);
   const { user } = useSelector((state: RootState) => state.auth);
   const dispatch = useDispatch();
   const { toast } = useToast();
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const [selectedStatuses, setSelectedStatuses] = useState<InvoiceStatus[]>([]);
+  const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
+  const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
+  const [keyword, setKeyword] = useState('');
+
+  // Helper: Get visible columns and their unique values from invoices
+  const columnLabels = {
+    id: 'Invoice ID',
+    project: 'Project',
+    client: 'Client',
+    status: 'Status',
+    amount: 'Amount',
+    month: 'Month',
+    year: 'Year',
+    createdBy: 'Created By',
+    createdAt: 'Created At',
+    dueDate: 'Due Date',
+  };
+  const visibleColumns = ['status', 'project', 'client', 'month']; // Add/remove as needed
+
+  // Build unique values for each column
+  const columnFilterValues: Record<string, string[]> = {};
+  visibleColumns.forEach(col => {
+    columnFilterValues[col] = Array.from(new Set(invoices.map(inv => String(inv[col])))).filter(Boolean);
+  });
+
+  // State for dynamic filters
+  const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
     // Mock invoice data
@@ -96,10 +193,17 @@ const Invoices = () => {
   }, [dispatch]);
 
   const filteredInvoices = invoices.filter(invoice => {
-    if (filters.status !== 'All' && invoice.status !== filters.status) return false;
-    if (filters.month && invoice.month !== filters.month) return false;
-    if (filters.project && !invoice.project.toLowerCase().includes(filters.project.toLowerCase())) return false;
-    if (filters.client && !invoice.client.toLowerCase().includes(filters.client.toLowerCase())) return false;
+    // Dynamic filter logic
+    for (const col of visibleColumns) {
+      if (selectedFilters[col] && selectedFilters[col].length > 0) {
+        if (!selectedFilters[col].includes(String(invoice[col]))) return false;
+      }
+    }
+    if (keyword && !(
+      invoice.project.toLowerCase().includes(keyword.toLowerCase()) ||
+      invoice.client.toLowerCase().includes(keyword.toLowerCase()) ||
+      invoice.id.toLowerCase().includes(keyword.toLowerCase())
+    )) return false;
     return true;
   });
 
@@ -162,55 +266,71 @@ const Invoices = () => {
         </div>
       </div>
 
-      {/* Filters */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <CardTitle className="flex items-center space-x-2">
-            <Filter className="h-5 w-5" />
-            <span>Filters</span>
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div>
-              <Select value={filters.status} onValueChange={(value) => dispatch(setFilters({ status: value as InvoiceStatus | 'All' }))}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All Statuses" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="All">All Statuses</SelectItem>
-                  <SelectItem value="Draft">Draft</SelectItem>
-                  <SelectItem value="Pending L2">Pending L2</SelectItem>
-                  <SelectItem value="Pending L3">Pending L3</SelectItem>
-                  <SelectItem value="Approved">Approved</SelectItem>
-                  <SelectItem value="Rejected">Rejected</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
+      {/* Search and Filters Button */}
+      <div className="flex items-center space-x-2">
+        <Input
+          placeholder="Search invoices..."
+          value={keyword}
+          onChange={e => setKeyword(e.target.value)}
+          className="w-64"
+        />
+        <Button variant="outline" onClick={() => setDrawerOpen(true)}>
+          <Filter className="mr-2" /> Filters
+        </Button>
+      </div>
+
+      {/* Drawer Filter Panel */}
+      <Drawer open={drawerOpen} onOpenChange={setDrawerOpen}>
+        <DrawerContent className="right-0 left-auto w-full max-w-sm fixed top-4 rounded-xl shadow-lg border bg-white p-0 max-h-[80vh] flex flex-col">
+          {/* Scrollable content area (search + filters) */}
+          <div className="flex-1 min-h-0 overflow-y-auto p-4 pb-0">
+            {/* Search bar with icon */}
+            <div className="relative mb-4">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
+                <FilterIcon className="w-4 h-4" />
+              </span>
               <Input
-                placeholder="Filter by project..."
-                value={filters.project}
-                onChange={(e) => dispatch(setFilters({ project: e.target.value }))}
+                placeholder="Filter by Keyword"
+                value={keyword}
+                onChange={e => setKeyword(e.target.value)}
+                className="pl-10 pr-3 py-2 border rounded focus:outline-none focus:ring w-full"
               />
             </div>
-            <div>
-              <Input
-                placeholder="Filter by client..."
-                value={filters.client}
-                onChange={(e) => dispatch(setFilters({ client: e.target.value }))}
-              />
-            </div>
-            <div>
-              <Input
-                placeholder="Filter by month..."
-                value={filters.month}
-                onChange={(e) => dispatch(setFilters({ month: e.target.value }))}
-              />
-            </div>
+            <Accordion type="multiple" className="mb-4">
+              {visibleColumns.map(col => (
+                <FilterSection
+                  key={col}
+                  col={col}
+                  label={columnLabels[col] || col}
+                  options={columnFilterValues[col]}
+                  selected={selectedFilters[col] || []}
+                  onChange={vals => setSelectedFilters(prev => ({ ...prev, [col]: vals }))}
+                />
+              ))}
+            </Accordion>
           </div>
-        </CardContent>
-      </Card>
+          {/* Sticky Footer for buttons */}
+          <div className="sticky bottom-0 left-0 right-0 z-10 bg-white border-t flex justify-end items-center gap-2 pt-4 pb-2 px-4 rounded-b-xl">
+            <button
+              className="text-primary px-3 py-1 rounded hover:underline focus:outline-none"
+              onClick={() => {
+                setSelectedFilters({});
+                setKeyword('');
+              }}
+              type="button"
+            >
+              Reset
+            </button>
+            <button
+              className="bg-primary text-white px-4 py-2 rounded shadow hover:bg-primary/90 focus:outline-none"
+              onClick={() => setDrawerOpen(false)}
+              type="button"
+            >
+              Apply
+            </button>
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {/* Invoices Display */}
       {viewMode === 'cards' ? (

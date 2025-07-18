@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -22,14 +22,16 @@ import { Calendar } from '../components/ui/calendar';
 import { Link } from 'react-router-dom';
 import { Account, Project, Resource } from '../types';
 import { Popover, PopoverTrigger, PopoverContent } from '../components/ui/popover';
+import { setAccounts } from '../store/slices/accountsSlice';
 
 const Accounts = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { invoices } = useSelector((state: RootState) => state.invoices);
   const [searchTerm, setSearchTerm] = useState('');
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accounts, setAccountsState] = useState<Account[]>([]);
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null);
   const [resourceEdits, setResourceEdits] = useState<Record<string, any>>({});
+  const dispatch = useDispatch();
 
   useEffect(() => {
     // Mock account data
@@ -88,8 +90,9 @@ const Accounts = () => {
       }
     ];
     
-    setAccounts(mockAccounts);
-  }, []);
+    setAccountsState(mockAccounts);
+    dispatch(setAccounts(mockAccounts));
+  }, [dispatch]);
 
   const filteredAccounts = accounts.filter(account =>
     account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -142,7 +145,7 @@ const Accounts = () => {
     console.log(updated, 'updated' );
     // Here you would call your API and update the backend
     // For now, just update local state
-    setAccounts(prev => prev.map(acc => ({
+    setAccountsState(prev => prev.map(acc => ({
       ...acc,
       projects: acc.projects.map(p =>
         p.id === projectId ? { ...p, resources: updated } : p
@@ -276,7 +279,7 @@ const Accounts = () => {
                           ) : (
                             user?.role === 'L1' && (
                               <Button size="sm" variant="blue" className="" asChild>
-                                <Link to={`/invoice/generate?project=${project.id}`}>
+                                <Link to={`/invoice/generate?project=${project.id}&account=${account.id}`}>
                                   <Plus className="h-4 w-4 mr-1" />
                                   Add Invoice for {getCurrentMonth()}
                                 </Link>

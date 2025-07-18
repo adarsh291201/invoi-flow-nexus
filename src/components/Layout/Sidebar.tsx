@@ -42,6 +42,7 @@ const Sidebar = () => {
       )}
     >
       <div className="flex items-center justify-between p-4 border-b border-nav-foreground/10">
+        <img src="/paltechlogo.svg" alt="Logo" className="h-10 w-10 mr-2" />
         {!collapsed && (
           <h1 className="text-xl font-bold">InvoiceFlow</h1>
         )}

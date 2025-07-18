@@ -86,7 +86,7 @@ const Invoices = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const dispatch = useDispatch();
   const { toast } = useToast();
-  const [viewMode, setViewMode] = useState<'table' | 'cards'>('cards');
+  const [viewMode, setViewMode] = useState<'table' | 'cards'>('table');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [selectedStatuses, setSelectedStatuses] = useState<InvoiceStatus[]>([]);
   const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);

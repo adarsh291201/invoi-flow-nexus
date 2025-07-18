@@ -38,13 +38,17 @@ const Sidebar = () => {
       style={{ backgroundColor: "rgb(6, 65, 115)" }}
       className={cn(
         "text-nav-foreground shadow-nav transition-all duration-300",
-        collapsed ? "w-16" : "w-64"
+        collapsed ? "w-24" : "w-64"
       )}
     >
       <div className="flex items-center justify-between p-4 border-b border-nav-foreground/10">
-        <img src="/paltechlogo.svg" alt="Logo" className="h-10 w-10 mr-2" />
+        <img
+          src="/paltechlogo.svg"
+          alt="Paltech Logo"
+          className={collapsed ? "h-10 mx-auto" : "h-10 mr-2"}
+        />
         {!collapsed && (
-          <h1 className="text-xl font-bold">InvoiceFlow</h1>
+          <h1 className="text-xl font-bold sr-only">InvoiceFlow</h1>
         )}
         <Button
           variant="ghost"

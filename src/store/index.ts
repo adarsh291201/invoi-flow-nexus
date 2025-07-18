@@ -2,14 +2,12 @@ import { configureStore } from '@reduxjs/toolkit';
 import authSlice from './slices/authSlice';
 import invoiceSlice from './slices/invoiceSlice';
 import dashboardSlice from './slices/dashboardSlice';
-import accountsSlice from './slices/accountsSlice';
 
 export const store = configureStore({
   reducer: {
     auth: authSlice,
     invoices: invoiceSlice,
     dashboard: dashboardSlice,
-    accounts: accountsSlice,
   },
 });
 

@@ -43,12 +43,12 @@ export class InvoiceDataService {
   }
 
   // Get project data for invoice generation
-  static async getProjectInvoiceData(projectId: string, accountId: string): Promise<ProjectInvoiceData | null> {
+  static async getProjectInvoiceData(projectId: string): Promise<ProjectInvoiceData | null> {
     // Mock implementation - replace with actual API call
     try {
       const mockData: ProjectInvoiceData = {
         projectId,
-        accountId,
+        accountId: 'acc-001',
         projectName: 'Sample Project',
         accountName: 'Sample Account',
         resources: [
@@ -76,6 +76,7 @@ export class InvoiceDataService {
           year: new Date().getFullYear()
         }
       };
+      
       return mockData;
     } catch (error) {
       console.error('Error fetching project data:', error);

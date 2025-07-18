@@ -37,7 +37,6 @@ const InvoiceGeneration: React.FC = () => {
   const { toast } = useToast();
   const dispatch = useDispatch();
   const invoices = useSelector((state: RootState) => state.invoices.invoices);
-  const accountsState = useSelector((state: any) => state.accounts?.accounts);
 
   // State management
   const [step, setStep] = useState<Step>('template');
@@ -71,11 +70,10 @@ const InvoiceGeneration: React.FC = () => {
   useEffect(() => {
     const initializePage = async () => {
       const projectId = searchParams.get('project');
-      const accountId = searchParams.get('account');
-      if (!projectId || !accountId) {
+      if (!projectId) {
         toast({
           title: "Error",
-          description: "No project or account specified. Redirecting to accounts.",
+          description: "No project specified. Redirecting to accounts.",
           variant: "destructive",
         });
         navigate('/accounts');
@@ -84,29 +82,21 @@ const InvoiceGeneration: React.FC = () => {
 
       setLoading(true);
       try {
-        // Try to get data from Redux store if available
-        let data = null;
-        if (accountsState) {
-          const account = accountsState.find((a: any) => a.id === accountId);
-          const project = account?.projects.find((p: any) => p.id === projectId);
-          if (account && project) {
-            data = {
-              projectId: project.id,
-              accountId: account.id,
-              projectName: project.name,
-              accountName: account.name,
-              resources: project.resources,
-              period: {
-                month: new Date().toLocaleDateString('en-US', { month: 'long' }),
-                year: new Date().getFullYear()
-              }
-            };
-          }
+        // Check if invoice already exists
+        const currentDate = new Date();
+        const month = currentDate.toLocaleDateString('en-US', { month: 'long' });
+        const year = currentDate.getFullYear();
+        
+        const existenceCheck = await InvoiceDataService.checkInvoiceExists(projectId, month, year);
+        
+        if (existenceCheck.exists) {
+          setExistingInvoice(existenceCheck);
+          setLoading(false);
+          return;
         }
-        // If not found in Redux, fallback to mock service
-        if (!data) {
-          data = await InvoiceDataService.getProjectInvoiceData(projectId, accountId);
-        }
+
+        // Load project data
+        const data = await InvoiceDataService.getProjectInvoiceData(projectId);
         if (data) {
           setProjectData(data);
         }
@@ -122,7 +112,7 @@ const InvoiceGeneration: React.FC = () => {
     };
 
     initializePage();
-  }, [searchParams, navigate, toast, accountsState]);
+  }, [searchParams, navigate, toast]);
 
   useEffect(() => {
     if (templateId) {

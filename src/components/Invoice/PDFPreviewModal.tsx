@@ -112,63 +112,104 @@ const PDFPreviewModal: React.FC<PDFPreviewModalProps> = ({
                 <div className="text-right">
                   <div className="space-y-2 text-sm">
                     <h3 className="font-medium text-gray-900">Bill To:</h3>
-                    <p>{preview.configuration.clientInfo.name}</p>
-                    <p className="text-gray-600">{preview.configuration.clientInfo.address}</p>
-                    <p className="text-gray-600">{preview.configuration.clientInfo.email}</p>
+                    <p>{preview.configuration.commonData.billTo.split('\n')[0]}</p>
+                    <p className="text-gray-600">{preview.configuration.commonData.billTo.split('\n').slice(1).join('\n')}</p>
                   </div>
                 </div>
               </div>
             </div>
 
-            {/* Sections Preview */}
+            {/* Template Data Preview */}
             <div className="space-y-6">
-              {preview.configuration.sections.map((section) => (
-                <div key={section.id} className="bg-white p-6 rounded-lg shadow-sm">
-                  <h3 className="font-medium text-lg mb-4">{section.name}</h3>
-                  
-                  {section.data.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b">
-                            {section.headers.map((header, index) => (
-                              <th key={index} className="text-left py-2 font-medium text-gray-700">
-                                {header}
-                              </th>
+              {Object.entries(preview.configuration.templateData).map(([templateType, data]) => {
+                if (!data || (Array.isArray(data) && data.length === 0)) return null;
+                
+                const isTemplate6 = templateType === 'template6';
+                const isTemplate7 = templateType === 'template7';
+                
+                if (isTemplate6 && typeof data === 'object' && 'data' in data) {
+                  const template6Data = data as any;
+                  return (
+                    <div key={templateType} className="bg-white p-6 rounded-lg shadow-sm">
+                      <h3 className="font-medium text-lg mb-4">Template 6 Data</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b">
+                              <th className="text-left py-2 font-medium text-gray-700">S.No.</th>
+                              <th className="text-left py-2 font-medium text-gray-700">Name</th>
+                              <th className="text-left py-2 font-medium text-gray-700">Role</th>
+                              <th className="text-left py-2 font-medium text-gray-700">Rate</th>
+                              <th className="text-left py-2 font-medium text-gray-700">Hours</th>
+                              <th className="text-left py-2 font-medium text-gray-700">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {template6Data.data.slice(0, 3).map((item: any, index: number) => (
+                              <tr key={index} className="border-b border-gray-100">
+                                <td className="py-2 text-gray-600">{item.sNo}</td>
+                                <td className="py-2 text-gray-600">{item.name}</td>
+                                <td className="py-2 text-gray-600">{item.role}</td>
+                                <td className="py-2 text-gray-600">${item.rate}</td>
+                                <td className="py-2 text-gray-600">{item.hrsWorked}</td>
+                                <td className="py-2 text-gray-600">${item.amount.toLocaleString()}</td>
+                              </tr>
                             ))}
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {section.data.slice(0, 3).map((item, index) => (
-                            <tr key={index} className="border-b border-gray-100">
-                              {Object.values(item).slice(1).map((value, cellIndex) => (
-                                <td key={cellIndex} className="py-2 text-gray-600">
-                                  {typeof value === 'number' && ['amount', 'cost', 'rate'].some(field => 
-                                    section.headers[cellIndex]?.toLowerCase().includes(field.toLowerCase())
-                                  ) ? `$${value.toLocaleString()}` : String(value)}
-                                </td>
-                              ))}
-                            </tr>
-                          ))}
-                          {section.data.length > 3 && (
-                            <tr>
-                              <td colSpan={section.headers.length} className="py-2 text-center text-gray-500 italic">
-                                ... and {section.data.length - 3} more items
-                              </td>
-                            </tr>
-                          )}
-                        </tbody>
-                      </table>
+                          </tbody>
+                        </table>
+                      </div>
                     </div>
-                  ) : (
-                    <p className="text-gray-500 italic">No items in this section</p>
-                  )}
-                  
-                  <div className="mt-4 text-right">
-                    <p className="font-medium">Section Total: ${section.total.toLocaleString()}</p>
-                  </div>
-                </div>
-              ))}
+                  );
+                } else if (isTemplate7 && typeof data === 'object' && 'mainTable' in data) {
+                  const template7Data = data as any;
+                  return (
+                    <div key={templateType} className="bg-white p-6 rounded-lg shadow-sm space-y-4">
+                      <h3 className="font-medium text-lg">Template 7 Data</h3>
+                      <div className="space-y-4">
+                        <div>
+                          <h4 className="font-medium mb-2">Main Table</h4>
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-sm">
+                              <tbody>
+                                {template7Data.mainTable.slice(0, 2).map((item: any, index: number) => (
+                                  <tr key={index} className="border-b border-gray-100">
+                                    <td className="py-2 text-gray-600">{item.name}</td>
+                                    <td className="py-2 text-gray-600">${item.amount?.toLocaleString() || 0}</td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                } else if (Array.isArray(data)) {
+                  return (
+                    <div key={templateType} className="bg-white p-6 rounded-lg shadow-sm">
+                      <h3 className="font-medium text-lg mb-4">{templateType.replace('template', 'Template ')} Data</h3>
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <tbody>
+                            {data.slice(0, 3).map((item: any, index: number) => (
+                              <tr key={index} className="border-b border-gray-100">
+                                {Object.entries(item).slice(1).map(([key, value], cellIndex) => (
+                                  <td key={cellIndex} className="py-2 text-gray-600">
+                                    {typeof value === 'number' && ['amount', 'cost', 'rate'].includes(key) 
+                                      ? `$${value.toLocaleString()}` 
+                                      : String(value)}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  );
+                }
+                return null;
+              })}
             </div>
 
             {/* Totals */}

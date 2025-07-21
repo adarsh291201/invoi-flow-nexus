@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setInvoices } from '../store/slices/invoiceSlice';
-import { RootState } from '../store/store';
+import { RootState } from '../store/index';
 
 type Step = 'template' | 'configure' | 'review';
 
@@ -438,7 +438,7 @@ const InvoiceGeneration: React.FC = () => {
       <CommentModal
         isOpen={showCommentModal}
         onClose={() => setShowCommentModal(false)}
-        onSubmit={handleAddComment}
+        onSubmitComment={(comment, type) => handleAddComment(comment)}
         existingComments={invoiceConfig?.comments || []}
       />
 
@@ -446,7 +446,15 @@ const InvoiceGeneration: React.FC = () => {
         <PDFPreviewModal
           isOpen={showPDFPreview}
           onClose={() => setShowPDFPreview(false)}
-          configuration={invoiceConfig}
+          preview={{
+            configuration: invoiceConfig,
+            previewHtml: '',
+            estimatedPages: 1,
+            warnings: []
+          }}
+          onDownload={() => {
+            console.log('Download PDF');
+          }}
         />
       )}
     </div>

@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { RootState } from '../store';
+import { RootState } from '../store/index';
 import { setInvoices, setFilters, updateInvoiceStatus } from '../store/slices/invoiceSlice';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
@@ -12,6 +12,7 @@ import { Eye, MessageSquare, Check, X, Filter, FileText } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { Invoice, InvoiceStatus } from '../types';
 import { useToast } from '../hooks/use-toast';
+import InvoiceList from '../components/Invoice/InvoiceList';
 import {
   Drawer,
   DrawerContent,

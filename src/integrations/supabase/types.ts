@@ -14,7 +14,140 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      invoice_comments: {
+        Row: {
+          author_id: string | null
+          author_name: string
+          comment_text: string
+          comment_type: string
+          created_at: string
+          id: string
+          invoice_id: string
+          resolved_at: string | null
+          status: string
+        }
+        Insert: {
+          author_id?: string | null
+          author_name: string
+          comment_text: string
+          comment_type: string
+          created_at?: string
+          id?: string
+          invoice_id: string
+          resolved_at?: string | null
+          status?: string
+        }
+        Update: {
+          author_id?: string | null
+          author_name?: string
+          comment_text?: string
+          comment_type?: string
+          created_at?: string
+          id?: string
+          invoice_id?: string
+          resolved_at?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_comments_invoice_id_fkey"
+            columns: ["invoice_id"]
+            isOneToOne: false
+            referencedRelation: "invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoices: {
+        Row: {
+          account_id: string
+          configuration: Json
+          created_at: string
+          created_by: string | null
+          currency: string
+          due_date: string | null
+          generated_at: string | null
+          id: string
+          invoice_number: string
+          month: string
+          pdf_file_path: string | null
+          pdf_file_size: number | null
+          project_id: string
+          status: string
+          template_type: string
+          total_amount: number
+          updated_at: string
+          year: number
+        }
+        Insert: {
+          account_id: string
+          configuration: Json
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_date?: string | null
+          generated_at?: string | null
+          id?: string
+          invoice_number: string
+          month: string
+          pdf_file_path?: string | null
+          pdf_file_size?: number | null
+          project_id: string
+          status?: string
+          template_type: string
+          total_amount?: number
+          updated_at?: string
+          year: number
+        }
+        Update: {
+          account_id?: string
+          configuration?: Json
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          due_date?: string | null
+          generated_at?: string | null
+          id?: string
+          invoice_number?: string
+          month?: string
+          pdf_file_path?: string | null
+          pdf_file_size?: number | null
+          project_id?: string
+          status?: string
+          template_type?: string
+          total_amount?: number
+          updated_at?: string
+          year?: number
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          email: string | null
+          full_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          full_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never

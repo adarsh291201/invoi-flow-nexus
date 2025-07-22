@@ -16,7 +16,6 @@ import TemplateSelector from '../components/Invoice/TemplateSelector';
 import InvoiceTemplateEditor from '../components/Invoice/InvoiceTemplateEditor';
 import CommentModal from '../components/Invoice/CommentModal';
 import PDFPreviewModal from '../components/Invoice/PDFPreviewModal';
-import { InvoicePDFService } from '../services/invoicePDFService';
 import { 
   ArrowLeft, 
   Save, 
@@ -27,7 +26,7 @@ import {
 } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { setInvoices } from '../store/slices/invoiceSlice';
-import { RootState } from '../store/index';
+import { RootState } from '../store/store';
 
 type Step = 'template' | 'configure' | 'review';
 
@@ -49,8 +48,6 @@ const InvoiceGeneration: React.FC = () => {
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [showPDFPreview, setShowPDFPreview] = useState(false);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
-  const [generatedPDFUrl, setGeneratedPDFUrl] = useState<string | null>(null);
-  const [generatedInvoiceId, setGeneratedInvoiceId] = useState<string | null>(null);
 
   // Auto-save functionality
   useEffect(() => {
@@ -231,29 +228,22 @@ const InvoiceGeneration: React.FC = () => {
 
     setLoading(true);
     try {
-      // Generate PDF using the new service
-      const result = await InvoicePDFService.generatePDF(invoiceConfig);
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to generate PDF');
-      }
+      // Here you would make API call to generate PDF
+      // For now, we'll simulate the process
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       toast({
         title: "PDF Generated",
-        description: "Your invoice PDF has been generated and saved successfully.",
+        description: "Your invoice PDF has been generated successfully.",
+        variant: "success",
       });
-
-      // Store the generated PDF info
-      setGeneratedPDFUrl(result.previewUrl || null);
-      setGeneratedInvoiceId(result.invoiceId || null);
-      
       // Add the generated invoice to Redux store
       dispatch(setInvoices([...invoices, {
-        id: result.invoiceId || invoiceConfig.id,
+        id: invoiceConfig.id,
         project: projectData?.projectName || '',
         projectId: invoiceConfig.projectId,
         client: projectData?.accountName || '',
-        status: 'Generated',
+        status: 'Draft',
         amount: invoiceConfig.totals.total,
         month: invoiceConfig.month,
         year: invoiceConfig.year,
@@ -264,13 +254,11 @@ const InvoiceGeneration: React.FC = () => {
           { id: Date.now().toString(), action: 'Generated', by: invoiceConfig.metadata.createdBy, byId: 'current', date: new Date().toISOString() }
         ],
       }]));
-      
       setShowPDFPreview(true);
     } catch (error) {
-      console.error('PDF generation error:', error);
       toast({
         title: "Error",
-        description: error instanceof Error ? error.message : "Failed to generate PDF. Please try again.",
+        description: "Failed to generate PDF. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -306,38 +294,6 @@ const InvoiceGeneration: React.FC = () => {
       title: "Comment Added",
       description: "Your comment has been added and PMO has been notified.",
     });
-  };
-
-  // Handle PDF download
-  const handleDownloadPDF = async () => {
-    if (!generatedInvoiceId) return;
-
-    try {
-      const result = await InvoicePDFService.getDownloadUrl(generatedInvoiceId);
-      
-      if (result.success && result.downloadUrl) {
-        // Create a temporary link and trigger download
-        const link = document.createElement('a');
-        link.href = result.downloadUrl;
-        link.download = result.fileName || 'invoice.pdf';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        toast({
-          title: "Download Started",
-          description: "Your invoice PDF download has started.",
-        });
-      } else {
-        throw new Error(result.error || 'Failed to get download URL');
-      }
-    } catch (error) {
-      toast({
-        title: "Download Error",
-        description: error instanceof Error ? error.message : "Failed to download PDF.",
-        variant: "destructive",
-      });
-    }
   };
 
   // If invoice already exists for this project/month
@@ -482,7 +438,7 @@ const InvoiceGeneration: React.FC = () => {
       <CommentModal
         isOpen={showCommentModal}
         onClose={() => setShowCommentModal(false)}
-        onSubmitComment={(comment, type) => handleAddComment(comment)}
+        onSubmit={handleAddComment}
         existingComments={invoiceConfig?.comments || []}
       />
 
@@ -490,13 +446,7 @@ const InvoiceGeneration: React.FC = () => {
         <PDFPreviewModal
           isOpen={showPDFPreview}
           onClose={() => setShowPDFPreview(false)}
-          preview={{
-            configuration: invoiceConfig,
-            previewHtml: '',
-            estimatedPages: 1,
-            warnings: []
-          }}
-          onDownload={handleDownloadPDF}
+          configuration={invoiceConfig}
         />
       )}
     </div>

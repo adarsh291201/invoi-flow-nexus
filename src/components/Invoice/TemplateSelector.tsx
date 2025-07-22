@@ -3,7 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui
 import { Badge } from '../ui/badge';
 import { InvoiceTemplate, InvoiceTemplateConfig } from '../../types/invoice';
 import { FileText, Clock, DollarSign, Layers, Check } from 'lucide-react';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../ui/table';
+import { Table, Tbody, Td, Th, Thead, Tr } from '../ui/table';
 import { useState } from 'react';
 import { Dialog, DialogContent } from '../ui/dialog';
 import { Eye } from 'lucide-react';

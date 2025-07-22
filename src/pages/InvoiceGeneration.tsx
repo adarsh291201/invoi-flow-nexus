@@ -213,7 +213,6 @@ const InvoiceGeneration: React.FC = () => {
 
   // Handle PDF generation
   const handleGeneratePDF = async () => {
-    console.log('handleGeneratePDF', invoiceConfig , "payload");
     if (!invoiceConfig) return;
 
     // Validate required fields
@@ -228,33 +227,33 @@ const InvoiceGeneration: React.FC = () => {
 
     setLoading(true);
     try {
-      // Here you would make API call to generate PDF
-      // For now, we'll simulate the process
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      toast({
-        title: "PDF Generated",
-        description: "Your invoice PDF has been generated successfully.",
-        variant: "success",
+      // Call backend API to generate invoice and PDF
+      const response = await fetch('http://localhost:5133/invoice', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          configuration: invoiceConfig,
+          format: 'pdf',
+          includeAttachments: false
+        }),
       });
-      // Add the generated invoice to Redux store
-      dispatch(setInvoices([...invoices, {
-        id: invoiceConfig.id,
-        project: projectData?.projectName || '',
-        projectId: invoiceConfig.projectId,
-        client: projectData?.accountName || '',
-        status: 'Draft',
-        amount: invoiceConfig.totals.total,
-        month: invoiceConfig.month,
-        year: invoiceConfig.year,
-        createdBy: invoiceConfig.metadata.createdBy,
-        createdAt: invoiceConfig.metadata.createdAt,
-        dueDate: '',
-        history: [
-          { id: Date.now().toString(), action: 'Generated', by: invoiceConfig.metadata.createdBy, byId: 'current', date: new Date().toISOString() }
-        ],
-      }]));
-      setShowPDFPreview(true);
+      const data = await response.json();
+      if (data.success) {
+        toast({
+          title: "PDF Generated",
+          description: "Your invoice PDF has been generated successfully.",
+          variant: "success",
+        });
+        // Optionally update Redux or open the PDF
+        window.open(`http://localhost:5133${data.downloadUrl}`, '_blank');
+        setShowPDFPreview(true);
+      } else {
+        toast({
+          title: "Error",
+          description: data.errors?.join(', ') || "Failed to generate PDF.",
+          variant: "destructive",
+        });
+      }
     } catch (error) {
       toast({
         title: "Error",

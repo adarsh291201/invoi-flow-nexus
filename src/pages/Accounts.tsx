@@ -22,6 +22,13 @@ import { Calendar } from '../components/ui/calendar';
 import { Link } from 'react-router-dom';
 import { Account, Project, Resource } from '../types';
 import { Popover, PopoverTrigger, PopoverContent } from '../components/ui/popover';
+import {
+  getRateMatrices,
+  createRateMatrices,
+  updateRateMatrix,
+  deleteRateMatrix,
+} from '../services/rateMatrixService';
+import { toast } from '../components/ui/use-toast';
 
 const Accounts = () => {
   const { user } = useSelector((state: RootState) => state.auth);
@@ -30,6 +37,12 @@ const Accounts = () => {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null);
   const [resourceEdits, setResourceEdits] = useState<Record<string, any>>({});
+  const [month, setMonth] = useState('June');
+  const [year, setYear] = useState(new Date().getFullYear());
+  const [projects, setProjects] = useState([]);
+  const [selected, setSelected] = useState<string[]>([]);
+  const [rateMatrices, setRateMatrices] = useState<any[]>([]);
+  const [loadingMatrix, setLoadingMatrix] = useState(false);
 
   useEffect(() => {
     // Mock account data
@@ -91,6 +104,23 @@ const Accounts = () => {
     setAccounts(mockAccounts);
   }, []);
 
+  useEffect(() => {
+    fetch(`/project/without-invoice?month=${month}&year=${year}`)
+      .then(res => res.json())
+      .then(setProjects);
+  }, [month, year]);
+
+  const handleBulkGenerate = async () => {
+    const res = await fetch('/project/bulk-generate-invoices', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectIds: selected, month, year }),
+    });
+    const data = await res.json();
+    // Show results to user (success/failure)
+    alert('Bulk invoice generation complete!');
+  };
+
   const filteredAccounts = accounts.filter(account =>
     account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
     account.projects.some(project => 
@@ -133,27 +163,60 @@ const Accounts = () => {
     }));
   };
 
-  const handleSaveResourceRates = (projectId: string, resources: Resource[]) => {
-    // Simulate API call
-    const updated = resources.map(r => ({
-      ...r,
-      ...resourceEdits[r.id]
-    }));
-    console.log(updated, 'updated' );
-    // Here you would call your API and update the backend
-    // For now, just update local state
-    setAccounts(prev => prev.map(acc => ({
-      ...acc,
-      projects: acc.projects.map(p =>
-        p.id === projectId ? { ...p, resources: updated } : p
-      )
-    })));
-    // Optionally clear edits
-    setResourceEdits(prev => {
-      const newEdits = { ...prev };
-      resources.forEach(r => { delete newEdits[r.id]; });
-      return newEdits;
-    });
+  // Fetch rate matrix for selected project
+  const fetchRateMatrix = async (projectId: string) => {
+    setLoadingMatrix(true);
+    try {
+      const data = await getRateMatrices(projectId);
+      setRateMatrices(data);
+    } catch (e) {
+      toast({ title: 'Error', description: 'Failed to fetch rate matrix', variant: 'destructive' });
+    } finally {
+      setLoadingMatrix(false);
+    }
+  };
+
+  // Save rate matrix (bulk)
+  const handleSaveResourceRates = async (payload: any[]) => {
+    setLoadingMatrix(true);
+    try {
+      await createRateMatrices(payload);
+      toast({ title: 'Success', description: 'Rate matrix saved', variant: 'success' });
+      // Optionally refetch
+      if (payload[0]?.projectId) fetchRateMatrix(payload[0].projectId);
+    } catch (e) {
+      toast({ title: 'Error', description: 'Failed to save rate matrix', variant: 'destructive' });
+    } finally {
+      setLoadingMatrix(false);
+    }
+  };
+
+  // Update a single rate matrix
+  const handleUpdateRateMatrix = async (id: number, matrix: any) => {
+    setLoadingMatrix(true);
+    try {
+      await updateRateMatrix(id, matrix);
+      toast({ title: 'Success', description: 'Rate matrix updated', variant: 'success' });
+      fetchRateMatrix(matrix.projectId);
+    } catch (e) {
+      toast({ title: 'Error', description: 'Failed to update rate matrix', variant: 'destructive' });
+    } finally {
+      setLoadingMatrix(false);
+    }
+  };
+
+  // Delete a rate matrix
+  const handleDeleteRateMatrix = async (id: number, projectId: string) => {
+    setLoadingMatrix(true);
+    try {
+      await deleteRateMatrix(id);
+      toast({ title: 'Success', description: 'Rate matrix deleted', variant: 'success' });
+      fetchRateMatrix(projectId);
+    } catch (e) {
+      toast({ title: 'Error', description: 'Failed to delete rate matrix', variant: 'destructive' });
+    } finally {
+      setLoadingMatrix(false);
+    }
   };
 
   // Validation: check if all required fields are filled for all resources
@@ -170,19 +233,24 @@ const Accounts = () => {
   };
 
   // Build payload for API
-  const buildRateMatrixPayload = (resources: Resource[]) => {
+  const buildRateMatrixPayload = (resources: Resource[], project: Project, account: Account) => {
     return resources.map(resource => {
       const edit = resourceEdits[resource.id] || {};
+      // Convert resource.id to a number if it's a string like 'r3'
+      let resourceIdNum = typeof resource.id === 'number' ? resource.id : parseInt(String(resource.id).replace(/\D/g, ''), 10);
       return {
-        id: resource.id,
-        name: resource.name,
-        role: resource.role,
-        rate: edit.rate ?? resource.rate,
-        weekendRate: edit.weekendRate ?? resource.weekendRate,
-        otRate: edit.otRate ?? resource.otRate,
+        id: typeof resource.id === 'number' ? resource.id : 0, // 0 for new, or use actual number if editing
+        projectId: project.id,
+        projectName: project.name,
+        accountId: account.id,
+        accountName: account.name,
+        resourceId: resourceIdNum,
+        resourceName: resource.name,
         startDate: edit.startDate ?? resource.startDate,
         endDate: edit.endDate ?? resource.endDate,
-        projectId: resource.projectId,
+        standardRate: edit.rate ?? resource.rate,
+        weekendRate: edit.weekendRate ?? resource.weekendRate,
+        otRate: edit.otRate ?? resource.otRate,
       };
     });
   };
@@ -407,13 +475,13 @@ const Accounts = () => {
                                 size="sm"
                                 variant="blue"
                                 onClick={() => {
-                                  const payload = buildRateMatrixPayload(project.resources);
-                                  handleSaveResourceRates(project.id, project.resources);
+                                  const payload = buildRateMatrixPayload(project.resources, project, account);
+                                  handleSaveResourceRates(payload);
                                   // You can use 'payload' for your API call later
                                 }}
-                                disabled={!isMatrixValid(project.resources)}
+                                disabled={!isMatrixValid(project.resources) || loadingMatrix}
                               >
-                                Save Rate Matrix
+                                {loadingMatrix ? 'Saving...' : 'Save Rate Matrix'}
                               </Button>
                             </div>
                           )}
@@ -473,6 +541,68 @@ const Accounts = () => {
           </CardContent>
         </Card>
       )}
+
+      <div>
+        <label>
+          Month:
+          <select value={month} onChange={e => setMonth(e.target.value)}>
+            {/* Add month options here */}
+            <option value="January">January</option>
+            <option value="February">February</option>
+            <option value="March">March</option>
+            <option value="April">April</option>
+            <option value="May">May</option>
+            <option value="June">June</option>
+            <option value="July">July</option>
+            <option value="August">August</option>
+            <option value="September">September</option>
+            <option value="October">October</option>
+            <option value="November">November</option>
+            <option value="December">December</option>
+          </select>
+        </label>
+        <label>
+          Year:
+          <input type="number" value={year} onChange={e => setYear(Number(e.target.value))} />
+        </label>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>
+              <input
+                type="checkbox"
+                checked={selected.length === projects.length}
+                onChange={e => setSelected(e.target.checked ? projects.map((p: any) => p.id) : [])}
+              />
+            </th>
+            <th>Project Name</th>
+          </tr>
+        </thead>
+        <tbody>
+          {projects.map((project: any) => (
+            <tr key={project.id}>
+              <td>
+                <input
+                  type="checkbox"
+                  checked={selected.includes(project.id)}
+                  onChange={e =>
+                    setSelected(sel =>
+                      e.target.checked
+                        ? [...sel, project.id]
+                        : sel.filter(id => id !== project.id)
+                    )
+                  }
+                />
+              </td>
+              <td>{project.name}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <button onClick={handleBulkGenerate} disabled={selected.length === 0}>
+        Generate Invoices
+      </button>
     </div>
   );
 };

@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "vwlorP9qx4huAnqMoytKsPVhGZc8oFW0UyxSRvOF3Fw=",
+  "Source": "InvoiceGenerator.API",
+  "BasePath": "_content/InvoiceGenerator.API",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}

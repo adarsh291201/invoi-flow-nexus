@@ -51,7 +51,7 @@ namespace InvoiceGenerator.API.Migrations
 
                     b.Property<string>("InvoiceConfigId")
                         .IsRequired()
-                        .HasColumnType("nvarchar(max)");
+                        .HasColumnType("nvarchar(255)");
 
                     b.Property<DateTime>("LastModifiedAt")
                         .HasColumnType("datetime2");
@@ -92,6 +92,9 @@ namespace InvoiceGenerator.API.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("InvoiceConfigId")
+                        .IsUnique();
 
                     b.ToTable("Invoices");
                 });

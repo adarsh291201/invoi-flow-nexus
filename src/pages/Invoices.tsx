@@ -8,8 +8,8 @@ import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import StatusBadge from '../components/StatusBadge';
-import { Eye, MessageSquare, Check, X, Filter, FileText } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Eye, MessageSquare, Check, X, Filter, FileText, Pencil } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
 import { Invoice, InvoiceStatus } from '../types';
 import { useToast } from '../hooks/use-toast';
 import {
@@ -28,6 +28,8 @@ import {
 } from '../components/ui/accordion';
 import { Checkbox } from '../components/ui/checkbox';
 import { Filter as FilterIcon } from 'lucide-react';
+import { InvoiceDataService } from '../services/invoiceDataService';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 
 function FilterSection({
   col,
@@ -92,6 +94,10 @@ const Invoices = () => {
   const [selectedDepartments, setSelectedDepartments] = useState<string[]>([]);
   const [selectedGrades, setSelectedGrades] = useState<string[]>([]);
   const [keyword, setKeyword] = useState('');
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const previewUrlRef = useRef<string | null>(null);
+  const navigate = useNavigate();
 
   // Helper: Get visible columns and their unique values from invoices
   const columnLabels = {
@@ -118,91 +124,38 @@ const Invoices = () => {
   const [selectedFilters, setSelectedFilters] = useState<Record<string, string[]>>({});
 
   useEffect(() => {
-    // Mock invoice data
-    const mockInvoices: Invoice[] = [
-      // {
-      //   id: 'inv001',
-      //   project: 'Alpha - Migration',
-      //   projectId: 'p101',
-      //   client: 'Client Alpha',
-      //   status: 'Pending L2',
-      //   amount: 12500,
-      //   month: 'June',
-      //   year: 2025,
-      //   createdBy: 'Alice Johnson',
-      //   createdAt: '2025-06-01T10:00:00Z',
-      //   dueDate: '2025-06-15T00:00:00Z',
-      //   history: [
-      //     { id: '1', action: 'Generated', by: 'Alice Johnson', byId: 'u1', date: '2025-06-01T10:00:00Z' },
-      //   ],
-      // },
-      {
-        id: 'inv002',
-        project: 'Beta - Development',
-        projectId: 'p102',
-        client: 'Client Beta',
-        status: 'Approved',
-        amount: 8750,
-        month: 'June',
-        year: 2025,
-        createdBy: 'Alice Johnson',
-        createdAt: '2025-06-02T14:30:00Z',
-        dueDate: '2025-06-17T00:00:00Z',
-        history: [
-          { id: '1', action: 'Generated', by: 'Alice Johnson', byId: 'u1', date: '2025-06-02T14:30:00Z' },
-          { id: '2', action: 'Approved by L2', by: 'Bob Smith', byId: 'u2', date: '2025-06-03T09:15:00Z' },
-          { id: '3', action: 'Approved by L3', by: 'Claire Wilson', byId: 'u3', date: '2025-06-03T16:45:00Z' },
-        ],
-      },
-      {
-        id: 'inv003',
-        project: 'Gamma - Consulting',
-        projectId: 'p103',
-        client: 'Client Gamma',
-        status: 'Draft',
-        amount: 15600,
-        month: 'June',
-        year: 2025,
-        createdBy: 'Alice Johnson',
-        createdAt: '2025-06-05T11:20:00Z',
-        dueDate: '2025-06-20T00:00:00Z',
-        history: [
-          { id: '1', action: 'Created as Draft', by: 'Alice Johnson', byId: 'u1', date: '2025-06-05T11:20:00Z' },
-        ],
-      },
-      {
-        id: 'inv004',
-        project: 'Delta - Support',
-        projectId: 'p104',
-        client: 'Client Delta',
-        status: 'Pending L3',
-        amount: 9200,
-        month: 'May',
-        year: 2025,
-        createdBy: 'Alice Johnson',
-        createdAt: '2025-05-28T16:00:00Z',
-        dueDate: '2025-06-12T00:00:00Z',
-        history: [
-          { id: '1', action: 'Generated', by: 'Alice Johnson', byId: 'u1', date: '2025-05-28T16:00:00Z' },
-          { id: '2', action: 'Approved by L2', by: 'Bob Smith', byId: 'u2', date: '2025-05-30T10:30:00Z', comment: 'Looks good, approved for final review' },
-        ],
-      },
-    ];
-    
-    dispatch(setInvoices(mockInvoices));
+    console.log('Fetching invoices from backend...');
+    InvoiceDataService.fetchAllInvoices()
+      .then(data => {
+        console.log('Fetched invoices:', data);
+        dispatch(setInvoices(data));
+      })
+      .catch(e => {
+        console.error('Failed to fetch invoices', e);
+      });
   }, [dispatch]);
 
-  const filteredInvoices = invoices.filter(invoice => {
-    // Dynamic filter logic
+  // Map backend invoices to UI-friendly format
+  const mappedInvoices = invoices.map((inv: any) => {
+    let totals = {};
+    try { totals = JSON.parse(inv.totalsJson || '{}'); } catch {}
+    return {
+      ...inv,
+      amount: (totals as any).total || 0,
+    };
+  });
+
+  // In the filter/search logic, use projectId and accountId
+  const filteredInvoices = mappedInvoices.filter(invoice => {
     for (const col of visibleColumns) {
       if (selectedFilters[col] && selectedFilters[col].length > 0) {
         if (!selectedFilters[col].includes(String(invoice[col]))) return false;
       }
     }
     if (keyword && !(
-      invoice.project.toLowerCase().includes(keyword.toLowerCase()) ||
-      invoice.client.toLowerCase().includes(keyword.toLowerCase()) ||
-      invoice.id.toLowerCase().includes(keyword.toLowerCase())
+      (invoice.projectId && invoice.projectId.toLowerCase().includes(keyword.toLowerCase())) ||
+      (invoice.accountId && invoice.accountId.toLowerCase().includes(keyword.toLowerCase())) ||
+      (invoice.id && String(invoice.id).toLowerCase().includes(keyword.toLowerCase()))
     )) return false;
     return true;
   });
@@ -232,6 +185,31 @@ const Invoices = () => {
     if (currentStatus === 'Pending L3') return 'Approved';
     return currentStatus;
   };
+
+  const handlePreview = async (invoiceId: string) => {
+    try {
+      const response = await fetch(`/invoice/${invoiceId}/download`, {
+        method: 'GET',
+      });
+      if (!response.ok) throw new Error('Failed to fetch PDF');
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+      previewUrlRef.current = url;
+      setPreviewOpen(true);
+    } catch (err) {
+      toast({ title: 'Error', description: 'Could not load PDF preview.' });
+    }
+  };
+
+  // Clean up object URL when modal closes
+  useEffect(() => {
+    if (!previewOpen && previewUrlRef.current) {
+      URL.revokeObjectURL(previewUrlRef.current);
+      previewUrlRef.current = null;
+      setPreviewUrl(null);
+    }
+  }, [previewOpen]);
 
   return (
     <div className="space-y-6">
@@ -335,13 +313,17 @@ const Invoices = () => {
       {/* Invoices Display */}
       {viewMode === 'cards' ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredInvoices.map((invoice) => (
-            <Card key={invoice.id} className="shadow-card hover:shadow-elevated transition-shadow">
+          {mappedInvoices.map((invoice) => (
+            <Card 
+              key={invoice.id} 
+              className="shadow-card hover:shadow-elevated transition-shadow cursor-pointer"
+              onClick={() => navigate(`/invoice/${invoice.invoiceConfigId}`)}
+            >
               <CardHeader>
                 <div className="flex justify-between items-start">
                   <div>
-                    <CardTitle className="text-lg">{invoice.project}</CardTitle>
-                    <CardDescription>{invoice.client}</CardDescription>
+                    <CardTitle className="text-lg">{invoice.projectId || '-'}</CardTitle>
+                    <CardDescription>{invoice.accountId || '-'}</CardDescription>
                   </div>
                   <StatusBadge status={invoice.status} />
                 </div>
@@ -350,20 +332,20 @@ const Invoices = () => {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Amount:</span>
-                    <span className="font-semibold">${invoice.amount.toLocaleString()}</span>
+                    <span className="font-semibold">{typeof invoice.amount === 'number' ? `$${invoice.amount.toLocaleString()}` : '-'}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Period:</span>
                     <span>{invoice.month} {invoice.year}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-muted-foreground">Created by:</span>
-                    <span className="text-sm">{invoice.createdBy}</span>
+                    <span className="text-sm text-muted-foreground">Created at:</span>
+                    <span className="text-sm">{invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString() : '-'}</span>
                   </div>
                   
-                  <div className="flex space-x-2 pt-2">
+                  <div className="flex space-x-2 pt-2" onClick={(e) => e.stopPropagation()}>
                     <Button asChild size="sm" variant="outline">
-                      <Link to={`/invoice/${invoice.id}/preview`}>
+                      <Link to={`/invoice/${invoice.invoiceConfigId}/preview`}>
                         <Eye className="h-4 w-4 mr-1" />
                         Preview
                       </Link>
@@ -402,36 +384,36 @@ const Invoices = () => {
         <Card className="shadow-card">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b">
-                  <tr>
-                    <th className="text-left p-4">Invoice ID</th>
-                    <th className="text-left p-4">Project</th>
-                    <th className="text-left p-4">Client</th>
-                    <th className="text-left p-4">Amount</th>
-                    <th className="text-left p-4">Status</th>
-                    <th className="text-left p-4">Period</th>
-                    <th className="text-left p-4">Actions</th>
+              <table className="w-full border-collapse" style={{ border: `1px solid rgb(6, 65, 115, 0.3)` }}>
+                <thead>
+                  <tr style={{ backgroundColor: 'rgb(6, 65, 115)' }}>
+                    <th className="text-left p-4 text-white font-semibold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Invoice ID</th>
+                    <th className="text-left p-4 text-white font-semibold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Project</th>
+                    <th className="text-left p-4 text-white font-semibold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Client</th>
+                    <th className="text-left p-4 text-white font-semibold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Amount</th>
+                    <th className="text-left p-4 text-white font-semibold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Status</th>
+                    <th className="text-left p-4 text-white font-semibold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Period</th>
+                    <th className="text-left p-4 text-white font-semibold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Actions</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInvoices.map((invoice) => (
-                    <tr key={invoice.id} className="border-b hover:bg-muted/50">
-                      <td className="p-4 font-mono text-sm">{invoice.id}</td>
-                      <td className="p-4">{invoice.project}</td>
-                      <td className="p-4">{invoice.client}</td>
-                      <td className="p-4 font-semibold">${invoice.amount.toLocaleString()}</td>
+                  {mappedInvoices.map((invoice) => (
+                    <tr 
+                      key={invoice.id} 
+                      className="border-b hover:bg-muted/50 cursor-pointer"
+                      onClick={() => navigate(`/invoice/${invoice.invoiceConfigId}`)}
+                      style={{ borderColor: 'rgb(6, 65, 115)' }}
+                    >
+                      <td className="p-4 font-mono text-sm font-medium">{invoice.invoiceConfigId}</td>
+                      <td className="p-4 font-medium">{invoice.projectId}</td>
+                      <td className="p-4 font-medium">{invoice.accountId}</td>
+                      <td className="p-4 font-semibold">${typeof invoice.amount === 'number' ? invoice.amount.toLocaleString() : '-'}</td>
                       <td className="p-4">
                         <StatusBadge status={invoice.status} />
                       </td>
-                      <td className="p-4">{invoice.month} {invoice.year}</td>
+                      <td className="p-4 font-medium">{invoice.month} {invoice.year}</td>
                       <td className="p-4">
-                        <div className="flex space-x-1">
-                          <Button asChild size="sm" variant="outline">
-                            <Link to={`/invoice/${invoice.id}/preview`}>
-                              <Eye className="h-4 w-4" />
-                            </Link>
-                          </Button>
+                        <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
                           {canApprove(invoice) && (
                             <Button
                               size="sm"

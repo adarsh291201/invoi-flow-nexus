@@ -210,3 +210,24 @@ export interface InvoiceExistenceCheck {
   previewUrl?: string;
   status?: string;
 }
+
+// Backend Invoice DB model type for UI mapping
+export interface Invoice {
+  id: number;
+  invoiceConfigId: string;
+  projectId: string;
+  accountId: string;
+  template: string;
+  month: string;
+  year: number;
+  commonDataJson: string;
+  templateDataJson: string;
+  totalsJson: string;
+  commentsJson: string;
+  status: string;
+  metadataJson: string;
+  previewUrl: string;
+  downloadUrl: string;
+  createdAt: string;
+  lastModifiedAt: string;
+}

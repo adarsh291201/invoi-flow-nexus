@@ -264,4 +264,33 @@ export class InvoiceDataService {
       return null;
     }
   }
+
+  static async fetchAllInvoices() {
+    const res = await fetch('/invoice');
+    console.log(res, 'res');  
+    if (!res.ok) throw new Error('Failed to fetch invoices');
+    return res.json();
+  }
+
+  // Fetch invoice details by id
+  static async fetchInvoiceById(id: string) {
+    const res = await fetch(`/invoice/${id}`);
+    if (!res.ok) throw new Error('Failed to fetch invoice details');
+    return res.json();
+  }
+
+  // Update invoice by id (POST /invoice for upsert)
+  static async updateInvoice(id: string, config: any) {
+    const res = await fetch('/invoice', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        configuration: config,
+        format: 'pdf',
+        includeAttachments: false
+      }),
+    });
+    if (!res.ok) throw new Error('Failed to update invoice');
+    return res.json();
+  }
 }

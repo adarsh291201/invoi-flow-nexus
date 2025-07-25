@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using System;
+using Newtonsoft.Json.Linq;
 
 namespace InvoiceGenerator.API.Controllers
 {
@@ -81,7 +82,9 @@ namespace InvoiceGenerator.API.Controllers
                 await _context.SaveChangesAsync();
 
                 // Generate PDF
-                var pdfBytes = _pdfService.GenerateInvoicePdf(config);
+                var invoiceJObject = JObject.FromObject(config);
+                var html = InvoiceHtmlTemplateBuilder.Build(invoiceJObject, null);
+                var pdfBytes = _pdfService.GenerateInvoicePdfFromHtml(html);
                 _pdfService.SaveInvoicePdf(config.Id, pdfBytes);
 
                 results.Add(new { projectId, success = true });

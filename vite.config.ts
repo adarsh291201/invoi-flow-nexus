@@ -8,6 +8,9 @@ export default defineConfig(({ mode }) => ({
   server: {
     host: "::",
     port: 8080,
+    proxy: {
+      '/invoice': 'http://localhost:5133'
+    }
   },
   plugins: [
     react(),

@@ -69,8 +69,8 @@ const TemplateSelector: React.FC<TemplateSelectorProps> = ({
                   <div className="flex-1 min-w-0">
                     <div className="flex justify-between items-center">
                       <div>
-                        <h4 className="font-semibold text-sm mb-1">{template.name}</h4>
-                        <p className="text-xs text-muted-foreground mb-3">{template.description}</p>
+                    <h4 className="font-semibold text-sm mb-1">{template.name}</h4>
+                    <p className="text-xs text-muted-foreground mb-3">{template.description}</p>
                       </div>
                       <button
                         type="button"

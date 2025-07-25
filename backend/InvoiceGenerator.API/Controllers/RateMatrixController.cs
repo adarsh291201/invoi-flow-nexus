@@ -34,6 +34,7 @@ namespace InvoiceGenerator.API.Controllers
             {
                 foreach (var m in matrices)
                 {
+                    m.Id = 0; // Ensure Id is always 0 for new entries
                     _logger.LogInformation("Payload: {@Matrix}", m);
                 }
             }

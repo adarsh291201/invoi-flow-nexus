@@ -1,37 +1,32 @@
-using QuestPDF.Fluent;
-using QuestPDF.Helpers;
-using QuestPDF.Infrastructure;
 using System;
 using System.IO;
 using InvoiceGenerator.API.Models;
+using DinkToPdf;
+using DinkToPdf.Contracts;
 
 namespace InvoiceGenerator.API.Services
 {
     public class PdfService
     {
-        public byte[] GenerateInvoicePdf(InvoiceConfiguration config)
+        private readonly IConverter _converter;
+        public PdfService(IConverter converter)
         {
-            // Example: create a simple PDF with invoice number and client
-            var document = Document.Create(container =>
-            {
-                container.Page(page =>
-                {
-                    page.Margin(30);
-                    page.Content()
-                        .Column(col =>
-                        {
-                            col.Item().Text($"Invoice Number: {config.Id}").FontSize(20).Bold();
-                            col.Item().Text($"Project: {config.ProjectId}");
-                            col.Item().Text($"Account: {config.AccountId}");
-                            col.Item().Text($"Month: {config.Month} {config.Year}");
-                            col.Item().Text($"Status: {config.Status}");
-                            col.Item().Text($"Generated: {DateTime.UtcNow}");
-                            // You can add more fields and layout as needed
-                        });
-                });
-            });
+            _converter = converter;
+        }
 
-            return document.GeneratePdf();
+        // Generate PDF from HTML string
+        public byte[] GenerateInvoicePdfFromHtml(string html)
+        {
+            // Print the HTML safely for debugging
+            Console.WriteLine("=== GENERATED HTML ===");
+            Console.WriteLine(html);
+            Console.WriteLine("======================");
+            var doc = new HtmlToPdfDocument()
+            {
+                GlobalSettings = { PaperSize = PaperKind.A4 },
+                Objects = { new ObjectSettings { HtmlContent = html } }
+            };
+            return _converter.Convert(doc);
         }
 
         public void SaveInvoicePdf(string invoiceId, byte[] pdfBytes)

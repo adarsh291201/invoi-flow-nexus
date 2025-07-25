@@ -29,12 +29,16 @@ import {
   deleteRateMatrix,
 } from '../services/rateMatrixService';
 import { toast } from '../components/ui/use-toast';
+import { getAccounts, getProjects } from '../services/mockApi';
+import type { AccountSummary } from '../types/mockApiTypes';
+import type { ProjectWithResources } from '../types/mockApiTypes';
 
 const Accounts = () => {
   const { user } = useSelector((state: RootState) => state.auth);
   const { invoices } = useSelector((state: RootState) => state.invoices);
   const [searchTerm, setSearchTerm] = useState('');
-  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [accounts, setAccounts] = useState<AccountSummary[]>([]);
+  const [projectsByAccount, setProjectsByAccount] = useState<Record<string, ProjectWithResources[]>>({});
   const [expandedAccount, setExpandedAccount] = useState<string | null>(null);
   const [resourceEdits, setResourceEdits] = useState<Record<string, any>>({});
   const [month, setMonth] = useState('June');
@@ -44,65 +48,19 @@ const Accounts = () => {
   const [rateMatrices, setRateMatrices] = useState<any[]>([]);
   const [loadingMatrix, setLoadingMatrix] = useState(false);
 
+  // Fetch accounts on mount
   useEffect(() => {
-    // Mock account data
-    const mockAccounts: Account[] = [
-      {
-        id: 'acc001',
-        name: 'Client Alpha Corp',
-        projects: [
-          {
-            id: 'p101',
-            name: 'Alpha - Migration',
-            accountId: 'acc001',
-            resources: [
-              { id: 'r1', name: 'John Doe', role: 'Senior Developer', rate: 85, weekendRate: 120, otRate: 110, projectId: 'p101', startDate: '2024-06-01', endDate: '2024-12-31' },
-              { id: 'r2', name: 'Jane Smith', role: 'Tech Lead', rate: 95, weekendRate: 140, otRate: 125, projectId: 'p101', startDate: '2024-06-01', endDate: '2024-12-31' },
-            ]
-          },
-          {
-            id: 'p102',
-            name: 'Alpha - Support',
-            accountId: 'acc001',
-            resources: [
-              { id: 'r3', name: 'Mike Johnson', role: 'Support Engineer', rate: 60, weekendRate: 85, otRate: 75, projectId: 'p102', startDate: '2024-06-01', endDate: '2024-12-31' },
-            ]
-          }
-        ]
-      },
-      {
-        id: 'acc002',
-        name: 'Client Beta Solutions',
-        projects: [
-          {
-            id: 'p201',
-            name: 'Beta - Development',
-            accountId: 'acc002',
-            resources: [
-              { id: 'r4', name: 'Sarah Wilson', role: 'Full Stack Developer', rate: 80, weekendRate: 115, otRate: 105, projectId: 'p201', startDate: '2024-06-01', endDate: '2024-12-31' },
-              { id: 'r5', name: 'David Brown', role: 'DevOps Engineer', rate: 90, weekendRate: 130, otRate: 115, projectId: 'p201', startDate: '2024-06-01', endDate: '2024-12-31' },
-            ]
-          }
-        ]
-      },
-      {
-        id: 'acc003',
-        name: 'Client Gamma Industries',
-        projects: [
-          {
-            id: 'p301',
-            name: 'Gamma - Consulting',
-            accountId: 'acc003',
-            resources: [
-              { id: 'r6', name: 'Emily Davis', role: 'Senior Consultant', rate: 100, weekendRate: 150, otRate: 130, projectId: 'p301', startDate: '2024-06-01', endDate: '2024-12-31' },
-            ]
-          }
-        ]
-      }
-    ];
-    
-    setAccounts(mockAccounts);
+    getAccounts().then((data: AccountSummary[]) => setAccounts(data));
   }, []);
+
+  // Fetch projects for an account when expanded
+  const handleExpandAccount = async (accountId: string) => {
+    setExpandedAccount(accountId === expandedAccount ? null : accountId);
+    if (!projectsByAccount[accountId]) {
+      const projects = await getProjects(accountId);
+      setProjectsByAccount((prev) => ({ ...prev, [accountId]: projects }));
+    }
+  };
 
   useEffect(() => {
     fetch(`/project/without-invoice?month=${month}&year=${year}`)
@@ -122,10 +80,7 @@ const Accounts = () => {
   };
 
   const filteredAccounts = accounts.filter(account =>
-    account.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    account.projects.some(project => 
-      project.name.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    account.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   const getCurrentMonth = () => {
@@ -143,11 +98,10 @@ const Accounts = () => {
     );
   };
 
-  const getTotalProjectResources = (project: Project) => {
-    return project.resources.length;
-  };
+  // Helper for resource count
+  const getTotalProjectResources = (project: ProjectWithResources) => project.resources.length;
 
-  const getAverageRate = (project: Project) => {
+  const getAverageRate = (project: ProjectWithResources) => {
     if (project.resources.length === 0) return 0;
     const total = project.resources.reduce((sum, resource) => sum + resource.rate, 0);
     return Math.round(total / project.resources.length);
@@ -179,6 +133,7 @@ const Accounts = () => {
   // Save rate matrix (bulk)
   const handleSaveResourceRates = async (payload: any[]) => {
     setLoadingMatrix(true);
+    console.log(payload, 'payload');
     try {
       await createRateMatrices(payload);
       toast({ title: 'Success', description: 'Rate matrix saved', variant: 'success' });
@@ -233,13 +188,11 @@ const Accounts = () => {
   };
 
   // Build payload for API
-  const buildRateMatrixPayload = (resources: Resource[], project: Project, account: Account) => {
+  const buildRateMatrixPayload = (resources: Resource[], project: ProjectWithResources, account: AccountSummary) => {
     return resources.map(resource => {
       const edit = resourceEdits[resource.id] || {};
-      // Convert resource.id to a number if it's a string like 'r3'
       let resourceIdNum = typeof resource.id === 'number' ? resource.id : parseInt(String(resource.id).replace(/\D/g, ''), 10);
       return {
-        id: typeof resource.id === 'number' ? resource.id : 0, // 0 for new, or use actual number if editing
         projectId: project.id,
         projectName: project.name,
         accountId: account.id,
@@ -288,7 +241,7 @@ const Accounts = () => {
           <Card key={account.id} className="shadow-card">
             <CardHeader
               className="cursor-pointer select-none"
-              onClick={() => setExpandedAccount(expandedAccount === account.id ? null : account.id)}
+              onClick={() => handleExpandAccount(account.id)}
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-3">
@@ -296,7 +249,7 @@ const Accounts = () => {
                   <div>
                     <CardTitle className="text-xl">{account.name}</CardTitle>
                     <CardDescription>
-                      {account.projects.length} project{account.projects.length !== 1 ? 's' : ''}
+                      {account.projectCount} project{account.projectCount !== 1 ? 's' : ''}
                     </CardDescription>
                   </div>
                 </div>
@@ -311,7 +264,7 @@ const Accounts = () => {
             {expandedAccount === account.id && (
               <CardContent>
                 <div className="space-y-6">
-                  {account.projects.map((project) => (
+                  {(projectsByAccount[account.id] || []).map((project) => (
                     <div key={project.id} className="border rounded-lg p-4 bg-muted/20">
                       <div className="flex justify-between items-start mb-4">
                         <div>
@@ -319,7 +272,7 @@ const Accounts = () => {
                           <div className="flex items-center space-x-4 mt-2 text-sm text-muted-foreground">
                             <span className="flex items-center">
                               <Users className="h-4 w-4 mr-1" />
-                              {getTotalProjectResources(project)} resources
+                              {getTotalProjectResources(project)} resource{getTotalProjectResources(project) !== 1 ? 's' : ''}
                             </span>
                             <span className="flex items-center">
                               <Calculator className="h-4 w-4 mr-1" />
@@ -368,18 +321,20 @@ const Accounts = () => {
                                 <th className="text-left p-2">OT Rate</th>
                                 <th className="text-left p-2">Start Date</th>
                                 <th className="text-left p-2">End Date</th>
+                                <th className="text-left p-2">Actions</th>
                               </tr>
                             </thead>
                             <tbody>
                               {project.resources.map((resource) => {
                                 const isEditable = user?.role === 'L1' || user?.role === 'Admin';
                                 const edit = resourceEdits[resource.id] || {};
+                                const isValid = (edit.rate ?? resource.rate) && (edit.weekendRate ?? resource.weekendRate) && (edit.otRate ?? resource.otRate) && (edit.startDate ?? resource.startDate) && (edit.endDate ?? resource.endDate);
                                 return (
-                                  <tr key={resource.id} className="border-b">
-                                    <td className="p-2 font-medium">{resource.name}</td>
-                                    <td className="p-2">
-                                      <Badge variant="secondary">{resource.role}</Badge>
-                                    </td>
+                                <tr key={resource.id} className="border-b">
+                                  <td className="p-2 font-medium">{resource.name}</td>
+                                  <td className="p-2">
+                                    <Badge variant="secondary">{resource.role}</Badge>
+                                  </td>
                                     <td className="p-2">
                                       {isEditable ? (
                                         <Input
@@ -464,7 +419,31 @@ const Accounts = () => {
                                         <>{resource.endDate ? new Date(resource.endDate).toLocaleDateString() : '-'}</>
                                       )}
                                     </td>
-                                  </tr>
+                                    <td className="p-2">
+                                      {isEditable && (
+                                        <Button
+                                          size="sm"
+                                          variant="blue"
+                                          disabled={!isValid || loadingMatrix}
+                                          onClick={async () => {
+                                            setLoadingMatrix(true);
+                                            const payload = buildRateMatrixPayload([resource], project, account);
+                                            try {
+                                              await createRateMatrices(payload);
+                                              toast({ title: 'Success', description: 'Rate matrix saved', variant: 'success' });
+                                              fetchRateMatrix(project.id);
+                                            } catch (e) {
+                                              toast({ title: 'Error', description: 'Failed to save rate matrix', variant: 'destructive' });
+                                            } finally {
+                                              setLoadingMatrix(false);
+                                            }
+                                          }}
+                                        >
+                                          {loadingMatrix ? 'Saving...' : 'Save Rate'}
+                                        </Button>
+                                      )}
+                                    </td>
+                                </tr>
                                 );
                               })}
                             </tbody>
@@ -482,43 +461,9 @@ const Accounts = () => {
                                 disabled={!isMatrixValid(project.resources) || loadingMatrix}
                               >
                                 {loadingMatrix ? 'Saving...' : 'Save Rate Matrix'}
-                              </Button>
+                                </Button>
                             </div>
                           )}
-                        </div>
-                      </div>
-
-                      {/* Previous Invoices */}
-                      <div>
-                        <h4 className="font-medium mb-3">Previous Invoices</h4>
-                        <div className="space-y-2">
-                          {/* Mock previous invoices */}
-                          {[
-                            { month: 'May 2025', template: 'Standard Template', status: 'Dispatched' },
-                            { month: 'April 2025', template: 'Detailed Template', status: 'Dispatched' },
-                            { month: 'March 2025', template: 'Standard Template', status: 'Dispatched' },
-                          ].map((invoice, index) => (
-                            <div key={index} className="flex items-center justify-between p-2 bg-background rounded border">
-                              <div className="flex items-center space-x-3">
-                                <FileText className="h-4 w-4 text-muted-foreground" />
-                                <span className="font-medium">{invoice.month}</span>
-                                <Badge variant="outline" className="text-xs">
-                                  {invoice.template}
-                                </Badge>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <Badge 
-                                  variant={invoice.status === 'Dispatched' ? 'default' : 'secondary'}
-                                  className="text-xs"
-                                >
-                                  {invoice.status}
-                                </Badge>
-                                <Button size="sm" variant="ghost">
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          ))}
                         </div>
                       </div>
                     </div>

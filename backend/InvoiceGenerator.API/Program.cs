@@ -1,5 +1,7 @@
 using InvoiceGenerator.API.Data;
 using Microsoft.EntityFrameworkCore;
+using DinkToPdf;
+using DinkToPdf.Contracts;
 // using InvoiceGenerator.API.Services; // If you have services
 
 var builder = WebApplication.CreateBuilder(args);
@@ -15,6 +17,8 @@ builder.Services.AddSwaggerGen();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
+// Register DinkToPdf converter
+builder.Services.AddSingleton<IConverter>(new SynchronizedConverter(new PdfTools()));
 // Register your custom services if needed
 builder.Services.AddScoped<InvoiceGenerator.API.Services.PdfService>();
 

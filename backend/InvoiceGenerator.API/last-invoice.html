@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset='utf-8'>
+<style>
+
+                body { 
+                    font-family: Arial, sans-serif; 
+                    margin: 0; 
+                    padding: 20px; 
+                    font-size: 12px;
+                    color: #000;
+                    background: #fff;
+                }
+                .invoice-container {
+                    max-width: 800px;
+                    margin: 0 auto;
+                    border: 1px solid #ddd;
+                    background: white;
+                }
+                .header {
+                    background: linear-gradient(135deg, #1e40af 0%, #3b82f6 50%, #f59e0b 100%);
+                    color: white;
+                    padding: 20px;
+                    position: relative;
+                    min-height: 80px;
+                }
+                .header-content {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: flex-start;
+                }
+                .company-info {
+                    flex: 1;
+                }
+                .company-name {
+                    font-size: 20px;
+                    font-weight: bold;
+                    margin-bottom: 8px;
+                    color: white;
+                }
+                .company-address {
+                    font-size: 11px;
+                    line-height: 1.4;
+                    color: white;
+                }
+                .logo-section {
+                    background: #1e40af;
+                    padding: 15px 25px;
+                    border-radius: 5px;
+                    text-align: center;
+                    min-width: 120px;
+                }
+                .invoice-title {
+                    font-size: 18px;
+                    font-weight: bold;
+                    margin-bottom: 5px;
+                }
+                .invoice-ref {
+                    font-size: 12px;
+                    opacity: 0.9;
+                }
+                .meta-section {
+                    background: #f8f9fa;
+                    padding: 0;
+                    border-bottom: 1px solid #ddd;
+                }
+                .meta-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 0;
+                }
+                .meta-table td {
+                    padding: 12px 15px;
+                    border-right: 1px solid #ddd;
+                    border-bottom: 1px solid #ddd;
+                    vertical-align: top;
+                }
+                .meta-table td:last-child {
+                    border-right: none;
+                }
+                .meta-label {
+                    font-weight: bold;
+                    color: #f59e0b;
+                    font-size: 11px;
+                    margin-bottom: 3px;
+                }
+                .meta-value {
+                    font-size: 12px;
+                    color: #333;
+                }
+                .bill-section {
+                    padding: 15px 20px;
+                    background: #fff;
+                    border-bottom: 1px solid #ddd;
+                }
+                .bill-label {
+                    font-weight: bold;
+                    color: #333;
+                    margin-bottom: 5px;
+                    font-size: 12px;
+                }
+                .bill-details {
+                    font-size: 12px;
+                    color: #333;
+                    line-height: 1.4;
+                }
+                .billing-period {
+                    background: #f59e0b;
+                    color: #000;
+                    padding: 8px 20px;
+                    font-weight: bold;
+                    font-size: 12px;
+                    border-bottom: 1px solid #ddd;
+                }
+                .table-section {
+                    padding: 0;
+                }
+                .invoice-table {
+                    width: 100%;
+                    border-collapse: collapse;
+                    margin: 0;
+                }
+                .invoice-table th {
+                    background: #f59e0b;
+                    color: #000;
+                    padding: 10px 8px;
+                    border: 1px solid #000;
+                    font-weight: bold;
+                    text-align: center;
+                    font-size: 11px;
+                }
+                .invoice-table td {
+                    padding: 8px;
+                    border: 1px solid #000;
+                    text-align: center;
+                    font-size: 11px;
+                    background: white;
+                }
+                .invoice-table .text-left {
+                    text-align: left;
+                }
+                .invoice-table .text-right {
+                    text-align: right;
+                    padding-right: 12px;
+                }
+                .totals-section {
+                    padding: 20px;
+                    text-align: right;
+                    background: #fff;
+                }
+                .totals-table {
+                    margin-left: auto;
+                    border-collapse: collapse;
+                    min-width: 200px;
+                }
+                .totals-table td {
+                    padding: 8px 15px;
+                    background: #1e40af;
+                    color: white;
+                    border: 1px solid #fff;
+                    font-weight: bold;
+                    font-size: 12px;
+                }
+                .footer {
+                    padding: 15px 20px;
+                    background: #f8f9fa;
+                    text-align: center;
+                    font-size: 10px;
+                    color: #666;
+                    border-top: 1px solid #ddd;
+                }
+                .signature-line {
+                    margin-top: 10px;
+                    text-align: right;
+                    color: #f59e0b;
+                    font-weight: bold;
+                }
+            
+</style></head><body>
+<div class='invoice-container'>
+<div class='header'>
+<div class='header-content'>
+<div class='company-info'>
+<div class='company-name'>PALTECH INC</div>
+<div class='company-address'>8 THE GREEN, STE R<br/>DOVER, DE 19901</div>
+</div>
+<div class='logo-section'>
+<div class='invoice-title'>INVOICE</div>
+<div class='invoice-ref'></div>
+</div>
+</div>
+</div>
+<div class='meta-section'>
+<table class='meta-table'>
+<tr>
+<td>
+<div class='meta-label'>Invoice Date</div>
+<div class='meta-value'></div>
+</td>
+<td>
+<div class='meta-label'>Payment Terms</div>
+<div class='meta-value'></div>
+</td>
+<td>
+<div class='meta-label'>PO Ref number</div>
+<div class='meta-value'></div>
+</td>
+</tr>
+</table>
+</div>
+<div class='footer'>
+<div class='signature-line'>#NAME#</div>
+Email to invoice@pal.tech in case of any queries
+</div>
+</div>
+</body></html>

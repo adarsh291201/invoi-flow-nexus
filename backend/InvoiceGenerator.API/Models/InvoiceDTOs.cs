@@ -28,4 +28,16 @@ namespace InvoiceGenerator.API.Models
         public string Status { get; set; }
         public string? Comment { get; set; }
     }
+
+    public class InvoiceCommonData
+    {
+        public string CompanyName { get; set; }
+        public string CompanyAddress { get; set; }
+        public string BillTo { get; set; }
+        public string InvoiceNumber { get; set; }
+        public string InvoiceDate { get; set; }
+        public string PaymentTerms { get; set; }
+        public string PhoneNumber { get; set; }
+        public string BillingPeriod { get; set; }
+    }
 } 

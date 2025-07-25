@@ -50,6 +50,10 @@
         "net9.0": {
           "targetAlias": "net9.0",
           "dependencies": {
+            "DinkToPdf": {
+              "target": "Package",
+              "version": "[1.0.8, )"
+            },
             "Microsoft.AspNetCore.OpenApi": {
               "target": "Package",
               "version": "[9.0.0, )"
@@ -68,6 +72,10 @@
               "target": "Package",
               "version": "[9.0.7, )"
             },
+            "Newtonsoft.Json": {
+              "target": "Package",
+              "version": "[13.0.3, )"
+            },
             "Npgsql.EntityFrameworkCore.PostgreSQL": {
               "target": "Package",
               "version": "[9.0.4, )"
@@ -75,6 +83,10 @@
             "QuestPDF": {
               "target": "Package",
               "version": "[2025.7.0, )"
+            },
+            "RazorLight": {
+              "target": "Package",
+              "version": "[2.3.1, )"
             },
             "Swashbuckle.AspNetCore": {
               "target": "Package",

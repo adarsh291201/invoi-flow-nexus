@@ -30,10 +30,10 @@ import { RootState } from '../store/store';
 
 type Step = 'template' | 'configure' | 'review';
 
-const InvoiceGeneration: React.FC = () => {
+const InvoiceGeneration: React.FC<{ mode?: 'edit' }> = ({ mode }) => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { templateId } = useParams();
+  const { templateId, id: editId } = useParams();
   const { toast } = useToast();
   const dispatch = useDispatch();
   const invoices = useSelector((state: RootState) => state.invoices.invoices);
@@ -48,6 +48,8 @@ const InvoiceGeneration: React.FC = () => {
   const [showCommentModal, setShowCommentModal] = useState(false);
   const [showPDFPreview, setShowPDFPreview] = useState(false);
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  // In edit mode, store the original id and ensure it is not changed
+  const [originalId, setOriginalId] = useState<string | null>(null);
 
   // Auto-save functionality
   useEffect(() => {
@@ -66,8 +68,9 @@ const InvoiceGeneration: React.FC = () => {
     return () => clearInterval(autoSaveInterval);
   }, [invoiceConfig, autoSaveEnabled]);
 
-  // Initialize page data
+  // Initialize page data (only for new invoice, not edit mode)
   useEffect(() => {
+    if (mode === 'edit') return;
     const initializePage = async () => {
       const projectId = searchParams.get('project');
       if (!projectId) {
@@ -112,7 +115,39 @@ const InvoiceGeneration: React.FC = () => {
     };
 
     initializePage();
-  }, [searchParams, navigate, toast]);
+  }, [searchParams, navigate, toast, mode]);
+
+  // Edit mode: fetch invoice by id and patch state
+  useEffect(() => {
+    if (mode === 'edit' && editId) {
+      setLoading(true);
+      InvoiceDataService.fetchInvoiceById(editId)
+        .then((data) => {
+          if (data && data.configuration) {
+            setInvoiceConfig(data.configuration);
+            setSelectedTemplate(data.configuration.template);
+            setProjectData({
+              projectId: data.configuration.projectId,
+              accountId: data.configuration.accountId,
+              projectName: '',
+              accountName: '',
+              resources: [],
+              period: { month: data.configuration.month, year: data.configuration.year }
+            });
+            setOriginalId(data.configuration.id);
+            setStep('configure');
+          } else {
+            toast({ title: 'Error', description: 'Invoice not found.' });
+            navigate('/invoices');
+          }
+        })
+        .catch(() => {
+          toast({ title: 'Error', description: 'Failed to fetch invoice.' });
+          navigate('/invoices');
+        })
+        .finally(() => setLoading(false));
+    }
+  }, [mode, editId, navigate, toast]);
 
   useEffect(() => {
     if (templateId) {
@@ -187,25 +222,24 @@ const InvoiceGeneration: React.FC = () => {
     setInvoiceConfig(updatedConfig);
   };
 
-  // Handle save draft
-  const handleSaveDraft = async () => {
+  // Handle save (draft or update)
+  const handleSave = async () => {
     if (!invoiceConfig) return;
-
     setLoading(true);
     try {
-      const success = await InvoiceDataService.saveInvoiceConfiguration(invoiceConfig);
-      if (success) {
-        toast({
-          title: "Draft Saved",
-          description: "Your invoice draft has been saved successfully.",
-        });
+      if (mode === 'edit' && editId) {
+        // Always use the original id in the payload
+        const configToSave = { ...invoiceConfig, id: originalId };
+        await InvoiceDataService.updateInvoice(editId, configToSave);
+        toast({ title: 'Invoice updated', description: 'Invoice details saved.' });
+      } else {
+        const success = await InvoiceDataService.saveInvoiceConfiguration(invoiceConfig);
+        if (success) {
+          toast({ title: 'Draft Saved', description: 'Your invoice draft has been saved successfully.' });
+        }
       }
     } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to save draft. Please try again.",
-        variant: "destructive",
-      });
+      toast({ title: 'Error', description: 'Failed to save invoice.' });
     } finally {
       setLoading(false);
     }
@@ -227,32 +261,48 @@ const InvoiceGeneration: React.FC = () => {
 
     setLoading(true);
     try {
-      // Call backend API to generate invoice and PDF
-      const response = await fetch('http://localhost:5133/invoice', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          configuration: invoiceConfig,
-          format: 'pdf',
-          includeAttachments: false
-        }),
-      });
-      const data = await response.json();
-      if (data.success) {
+      if (mode === 'edit' && editId) {
+        // First update the invoice
+        const configToSave = { ...invoiceConfig, id: originalId };
+        await InvoiceDataService.updateInvoice(editId, configToSave);
+        // Use preview/download URL from the invoice or refetch if needed
         toast({
-          title: "PDF Generated",
-          description: "Your invoice PDF has been generated successfully.",
+          title: "PDF Updated",
+          description: "Your invoice has been updated. Use the preview/download links to view the PDF.",
           variant: "success",
         });
-        // Optionally update Redux or open the PDF
-        window.open(`http://localhost:5133${data.downloadUrl}`, '_blank');
-        setShowPDFPreview(true);
+        // Optionally, refetch invoice and open preview/download URL
+        const updated = await InvoiceDataService.fetchInvoiceById(editId);
+        if (updated && updated.previewUrl) {
+          window.open(`http://localhost:5133${updated.previewUrl}`, '_blank');
+        }
       } else {
-        toast({
-          title: "Error",
-          description: data.errors?.join(', ') || "Failed to generate PDF.",
-          variant: "destructive",
+        // Call backend API to generate invoice and PDF (create mode)
+        const response = await fetch('http://localhost:5133/invoice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            configuration: invoiceConfig,
+            format: 'pdf',
+            includeAttachments: false
+          }),
         });
+        const data = await response.json();
+        if (data.success) {
+          toast({
+            title: "PDF Generated",
+            description: "Your invoice PDF has been generated successfully.",
+            variant: "success",
+          });
+          window.open(`http://localhost:5133${data.downloadUrl}`, '_blank');
+          setShowPDFPreview(true);
+        } else {
+          toast({
+            title: "Error",
+            description: data.errors?.join(', ') || "Failed to generate PDF.",
+            variant: "destructive",
+          });
+        }
       }
     } catch (error) {
       toast({
@@ -390,7 +440,7 @@ const InvoiceGeneration: React.FC = () => {
       )}
 
       {/* Step 2: Configuration */}
-      {step === 'configure' && selectedTemplate && invoiceConfig && !loading && (
+      {(step === 'configure' && selectedTemplate && invoiceConfig && !loading) && (
         <div className="space-y-6">
           <InvoiceTemplateEditor
             configuration={invoiceConfig}
@@ -404,7 +454,7 @@ const InvoiceGeneration: React.FC = () => {
                 <Button variant="outline" onClick={() => setStep('template')}>
                   Back to Templates
                 </Button>
-                <Button onClick={handleSaveDraft} disabled={loading} variant="blue">
+                <Button onClick={handleSave} disabled={loading} variant="blue">
                   <Save className="h-4 w-4 mr-2" />
                   Save Draft
                 </Button>

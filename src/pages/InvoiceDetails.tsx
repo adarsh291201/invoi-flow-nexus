@@ -5,7 +5,7 @@ import { RootState } from '../store';
 import { Card, CardContent, CardHeader, CardTitle } from '../components/ui/card';
 import { Button } from '../components/ui/button';
 import { Badge } from '../components/ui/badge';
-import { Eye, Pencil, ArrowLeft } from 'lucide-react';
+import { Eye, Pencil, ArrowLeft, Mail, Check, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../components/ui/dialog';
 import { Textarea } from '../components/ui/textarea';
 import { Label } from '../components/ui/label';
@@ -127,6 +127,26 @@ const InvoiceDetails: React.FC = () => {
       if (!res.ok) throw new Error('Failed to approve invoice');
       const data = await res.json();
       setInvoice((prev: any) => ({ ...prev, status: data.status }));
+      
+      // Automatically add approval comment to history
+      const approvalComment = `Approved by ${user.role}`;
+      await fetch(`/invoice/${id}/comment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          comment: approvalComment,
+          userName: user.name,
+          userRole: user.role,
+          userId: user.id
+        })
+      });
+      
+      // Refresh comments to show the new approval comment
+      const commentsRes = await fetch(`/invoice/${id}/comments`);
+      if (commentsRes.ok) {
+        const updatedComments = await commentsRes.json();
+        setComments(updatedComments);
+      }
     } catch {
       setActionError('Failed to approve invoice.');
     } finally {
@@ -148,6 +168,26 @@ const InvoiceDetails: React.FC = () => {
       if (!res.ok) throw new Error('Failed to reject invoice');
       const data = await res.json();
       setInvoice((prev: any) => ({ ...prev, status: data.status }));
+      
+      // Automatically add rejection comment to history
+      const rejectionComment = `Rejected by ${user.role}`;
+      await fetch(`/invoice/${id}/comment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          comment: rejectionComment,
+          userName: user.name,
+          userRole: user.role,
+          userId: user.id
+        })
+      });
+      
+      // Refresh comments to show the new rejection comment
+      const commentsRes = await fetch(`/invoice/${id}/comments`);
+      if (commentsRes.ok) {
+        const updatedComments = await commentsRes.json();
+        setComments(updatedComments);
+      }
     } catch {
       setActionError('Failed to reject invoice.');
     } finally {
@@ -169,6 +209,26 @@ const InvoiceDetails: React.FC = () => {
       if (!res.ok) throw new Error('Failed to request PM intervention');
       const data = await res.json();
       setInvoice((prev: any) => ({ ...prev, status: data.status }));
+      
+      // Automatically add PM request comment to history
+      const pmRequestComment = `PM intervention requested by ${user.role}`;
+      await fetch(`/invoice/${id}/comment`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          comment: pmRequestComment,
+          userName: user.name,
+          userRole: user.role,
+          userId: user.id
+        })
+      });
+      
+      // Refresh comments to show the new PM request comment
+      const commentsRes = await fetch(`/invoice/${id}/comments`);
+      if (commentsRes.ok) {
+        const updatedComments = await commentsRes.json();
+        setComments(updatedComments);
+      }
     } catch {
       setActionError('Failed to request PM intervention.');
     } finally {
@@ -194,15 +254,35 @@ const InvoiceDetails: React.FC = () => {
   // Handle preview for project invoices
   const handleProjectInvoicePreview = async (invoiceId: string) => {
     try {
-      const res = await fetch(`/invoice/${invoiceId}/download`);
-      if (!res.ok) throw new Error('Failed to fetch PDF');
-      const blob = await res.blob();
+      const response = await fetch(`/invoice/${invoiceId}/download`);
+      if (!response.ok) throw new Error('Failed to fetch PDF');
+      const blob = await response.blob();
       const url = URL.createObjectURL(blob);
       setSelectedInvoicePreview(url);
       setSelectedInvoicePreviewOpen(true);
     } catch (error) {
       console.error('Error loading invoice preview:', error);
     }
+  };
+
+  // Handle Send Mail functionality
+  const handleSendMail = async () => {
+    if (!invoice || !user) return;
+    
+    // For now, just show a success message since backend is not implemented
+    alert(`Email would be sent to client for invoice ${invoice.id}. This feature will be implemented in the backend.`);
+    
+    // TODO: When backend is ready, implement actual email sending
+    // const response = await fetch(`/invoice/${id}/send-mail`, {
+    //   method: 'POST',
+    //   headers: { 'Content-Type': 'application/json' },
+    //   body: JSON.stringify({
+    //     userId: user.id,
+    //     userRole: user.role,
+    //     clientEmail: invoice.clientEmail, // Assuming this field exists
+    //     invoiceId: invoice.id
+    //   })
+    // });
   };
 
   // Clean up selected invoice preview URL
@@ -254,7 +334,19 @@ const InvoiceDetails: React.FC = () => {
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Invoices
             </Button>
-            {user?.role === 'L1' && id && (
+            {/* Show Send Mail button for Ready for Dispatch status (L1 and Admin only) */}
+            {user && invoice.status === 'Ready for Dispatch' && (user.role === 'L1' || user.role === 'Admin') && (
+              <Button 
+                variant="blue" 
+                onClick={handleSendMail}
+                className="bg-green-600 hover:bg-green-700 text-white"
+              >
+                <Mail className="h-4 w-4 mr-2" />
+                Send Mail
+              </Button>
+            )}
+            {/* Show Edit Invoice button for other statuses (L1 only) */}
+            {user?.role === 'L1' && invoice.status !== 'Ready for Dispatch' && id && (
               <Button variant="blue" onClick={() => navigate(`/invoice/edit/${id}`)}>
                 <Pencil className="h-4 w-4 mr-2" />
                 Edit Invoice
@@ -264,54 +356,78 @@ const InvoiceDetails: React.FC = () => {
           
           {actionError && <div className="text-destructive mb-3">{actionError}</div>}
           
-          {/* Add Comment Section - Fixed height */}
-          <div className="mb-4">
-            <Label htmlFor="add-comment" className="font-semibold text-lg mb-2 block">Add Comment</Label>
-            <Textarea
-              id="add-comment"
-              value={newComment}
-              onChange={e => setNewComment(e.target.value)}
-              placeholder="Write your comment..."
-              rows={3}
-              className="mb-2"
-              disabled={submitting}
-            />
-            <div className="flex items-center justify-between">
-              <Button
-                onClick={handleAddComment}
-                disabled={!newComment.trim() || submitting}
-                className="text-white"
-                style={{ backgroundColor: 'rgb(6, 65, 115)' }}
-              >
-                {submitting ? 'Adding...' : 'Add Comment'}
-              </Button>
-              {/* Approve/Reject/PM Request buttons based on status/role */}
-              <div className="flex items-center gap-2">
-                {user && invoice.status === 'L1 Pending' && user.role === 'L1' && (
-                  <>
-                    <Button onClick={handleApprove} disabled={actionLoading} className="bg-emerald-500 text-white hover:bg-emerald-600 px-3 py-1 text-sm">Approve</Button>
-                    <Button onClick={handlePMRequest} disabled={actionLoading} className="bg-amber-500 text-white hover:bg-amber-600 px-3 py-1 text-sm">PM Request</Button>
-                  </>
-                )}
-                {user && invoice.status === 'L2 Pending' && user.role === 'L2' && (
-                  <>
-                    <Button onClick={handleApprove} disabled={actionLoading} className="bg-emerald-500 text-white hover:bg-emerald-600 px-3 py-1 text-sm">Approve</Button>
-                    <Button onClick={handleReject} disabled={actionLoading} className="bg-rose-500 text-white hover:bg-rose-600 px-3 py-1 text-sm">Reject</Button>
-                  </>
-                )}
-                {user && invoice.status === 'L3 Pending' && user.role === 'L3' && (
-                  <>
-                    <Button onClick={handleApprove} disabled={actionLoading} className="bg-emerald-500 text-white hover:bg-emerald-600 px-3 py-1 text-sm">Approve</Button>
-                    <Button onClick={handleReject} disabled={actionLoading} className="bg-rose-500 text-white hover:bg-rose-600 px-3 py-1 text-sm">Reject</Button>
-                  </>
-                )}
-                {user && invoice.status === 'PM Pending' && user.role === 'PM' && (
-                  <Button onClick={handleApprove} disabled={actionLoading} className="bg-emerald-500 text-white hover:bg-emerald-600 px-3 py-1 text-sm">Approve</Button>
-                )}
+          {/* Status Message for Ready for Dispatch */}
+          {invoice.status === 'Ready for Dispatch' && (
+            <div className="mb-4 p-4 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center">
+                <div className="flex-shrink-0">
+                  <Mail className="h-5 w-5 text-green-600" />
+                </div>
+                <div className="ml-3">
+                  <h3 className="text-sm font-medium text-green-800">
+                    Invoice Ready for Dispatch
+                  </h3>
+                  <div className="mt-1 text-sm text-green-700">
+                    <p>This invoice has been approved and is ready to be sent to the client.</p>
+                    {user && (user.role === 'L1' || user.role === 'Admin') && (
+                      <p className="mt-1 font-medium">You can send the invoice email to the client using the "Send Mail" button above.</p>
+                    )}
+                  </div>
+                </div>
               </div>
             </div>
-            {commentError && <div className="text-destructive mt-2">{commentError}</div>}
-          </div>
+          )}
+          
+          {/* Add Comment Section - Hidden for Ready for Dispatch status */}
+          {invoice.status !== 'Ready for Dispatch' && (
+            <div className="mb-4">
+              <Label htmlFor="add-comment" className="font-semibold text-lg mb-2 block">Add Comment</Label>
+              <Textarea
+                id="add-comment"
+                value={newComment}
+                onChange={e => setNewComment(e.target.value)}
+                placeholder="Write your comment..."
+                rows={3}
+                className="mb-2"
+                disabled={submitting}
+              />
+              <div className="flex items-center justify-between">
+                <Button
+                  onClick={handleAddComment}
+                  disabled={!newComment.trim() || submitting}
+                  className="text-white"
+                  style={{ backgroundColor: 'rgb(6, 65, 115)' }}
+                >
+                  {submitting ? 'Adding...' : 'Add Comment'}
+                </Button>
+                {/* Approve/Reject/PM Request buttons based on status/role */}
+                <div className="flex items-center gap-2">
+                  {user && invoice.status === 'L1 Pending' && user.role === 'L1' && (
+                    <>
+                      <Button onClick={handleApprove} disabled={actionLoading} className="bg-emerald-500 text-white hover:bg-emerald-600 px-3 py-1 text-sm">Approve</Button>
+                      <Button onClick={handlePMRequest} disabled={actionLoading} className="bg-amber-500 text-white hover:bg-amber-600 px-3 py-1 text-sm">PM Request</Button>
+                    </>
+                  )}
+                  {user && invoice.status === 'L2 Pending' && user.role === 'L2' && (
+                    <>
+                      <Button onClick={handleApprove} disabled={actionLoading} className="bg-emerald-500 text-white hover:bg-emerald-600 px-3 py-1 text-sm">Approve</Button>
+                      <Button onClick={handleReject} disabled={actionLoading} className="bg-rose-500 text-white hover:bg-rose-600 px-3 py-1 text-sm">Reject</Button>
+                    </>
+                  )}
+                  {user && invoice.status === 'L3 Pending' && user.role === 'L3' && (
+                    <>
+                      <Button onClick={handleApprove} disabled={actionLoading} className="bg-emerald-500 text-white hover:bg-emerald-600 px-3 py-1 text-sm">Approve</Button>
+                      <Button onClick={handleReject} disabled={actionLoading} className="bg-rose-500 text-white hover:bg-rose-600 px-3 py-1 text-sm">Reject</Button>
+                    </>
+                  )}
+                  {user && invoice.status === 'PM Pending' && user.role === 'PM' && (
+                    <Button onClick={handleApprove} disabled={actionLoading} className="bg-emerald-500 text-white hover:bg-emerald-600 px-3 py-1 text-sm">Approve</Button>
+                  )}
+                </div>
+              </div>
+              {commentError && <div className="text-destructive mt-2">{commentError}</div>}
+            </div>
+          )}
           
           {/* Comment History Section - Scrollable */}
           <div className="flex-1 flex flex-col min-h-0">
@@ -322,17 +438,35 @@ const InvoiceDetails: React.FC = () => {
               <div className="text-muted-foreground">No comments yet.</div>
             ) : (
               <div className="flex-1 overflow-y-auto pr-2 space-y-4">
-                {comments.map((c, idx) => (
-                  <div key={idx} className="border-l-2 border-primary/20 pl-4 pb-3">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <span className="font-semibold text-sm">{c.userRole} - {c.userName}</span>
-                        <span className="ml-2 text-xs text-muted-foreground">{new Date(c.date).toLocaleString()}</span>
+                {comments.map((c, idx) => {
+                  // Check if this is an approval/rejection comment
+                  const isApproval = c.commentText?.includes('Approved by');
+                  const isRejection = c.commentText?.includes('Rejected by');
+                  const isPMRequest = c.commentText?.includes('PM intervention requested by');
+                  
+                  return (
+                    <div key={idx} className="border-l-2 border-primary/20 pl-4 pb-3">
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center">
+                          {isApproval && (
+                            <Check className="h-4 w-4 text-green-600 mr-2" />
+                          )}
+                          {isRejection && (
+                            <X className="h-4 w-4 text-red-600 mr-2" />
+                          )}
+                          {isPMRequest && (
+                            <Mail className="h-4 w-4 text-amber-600 mr-2" />
+                          )}
+                          <span className="font-semibold text-sm">{c.userRole} - {c.userName}</span>
+                          <span className="ml-2 text-xs text-muted-foreground">{new Date(c.date).toLocaleString()}</span>
+                        </div>
+                      </div>
+                      <div className={`mt-1 text-sm ${isApproval ? 'text-green-700 font-medium' : isRejection ? 'text-red-700 font-medium' : isPMRequest ? 'text-amber-700 font-medium' : ''}`}>
+                        {c.commentText}
                       </div>
                     </div>
-                    <div className="mt-1 text-sm">{c.commentText}</div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

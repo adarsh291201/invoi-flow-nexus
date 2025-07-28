@@ -1,6 +1,6 @@
 export type UserRole = 'L1' | 'L2' | 'L3' | 'Admin';
 
-export type InvoiceStatus = 'Draft' | 'Pending L2' | 'Pending L3' | 'Approved' | 'Rejected' | 'Dispatched';
+export type InvoiceStatus = 'Draft' | 'L1 Pending' | 'L2 Pending' | 'L3 Pending' | 'PM Pending' | 'Ready for Dispatch' | 'Rejected' | 'Dispatched';
 
 export interface User {
   id: string;

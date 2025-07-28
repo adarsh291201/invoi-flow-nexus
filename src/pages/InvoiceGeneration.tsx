@@ -268,14 +268,11 @@ const InvoiceGeneration: React.FC<{ mode?: 'edit' }> = ({ mode }) => {
         // Use preview/download URL from the invoice or refetch if needed
         toast({
           title: "PDF Updated",
-          description: "Your invoice has been updated. Use the preview/download links to view the PDF.",
+          description: "Your invoice has been updated successfully.",
           variant: "success",
         });
-        // Optionally, refetch invoice and open preview/download URL
-        const updated = await InvoiceDataService.fetchInvoiceById(editId);
-        if (updated && updated.previewUrl) {
-          window.open(`http://localhost:5133${updated.previewUrl}`, '_blank');
-        }
+        // Navigate back to previous page
+        navigate(mode === 'edit' ? '/invoices' : '/accounts');
       } else {
         // Call backend API to generate invoice and PDF (create mode)
         const response = await fetch('http://localhost:5133/invoice', {
@@ -294,8 +291,8 @@ const InvoiceGeneration: React.FC<{ mode?: 'edit' }> = ({ mode }) => {
             description: "Your invoice PDF has been generated successfully.",
             variant: "success",
           });
-          window.open(`http://localhost:5133${data.downloadUrl}`, '_blank');
-          setShowPDFPreview(true);
+          // Navigate back to previous page
+          navigate(mode === 'edit' ? '/invoices' : '/accounts');
         } else {
           toast({
             title: "Error",
@@ -376,10 +373,10 @@ const InvoiceGeneration: React.FC<{ mode?: 'edit' }> = ({ mode }) => {
               </Button>
               <Button 
                 variant="outline" 
-                onClick={() => navigate('/accounts')}
+                onClick={() => navigate(mode === 'edit' ? '/invoices' : '/accounts')}
               >
                 <ArrowLeft className="h-4 w-4 mr-2" />
-                Back to Accounts
+                {mode === 'edit' ? 'Back to Invoices' : 'Back to Accounts'}
               </Button>
             </div>
           </CardContent>
@@ -393,9 +390,9 @@ const InvoiceGeneration: React.FC<{ mode?: 'edit' }> = ({ mode }) => {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-4">
-          <Button variant="outline" onClick={() => navigate('/accounts')}>
+          <Button variant="outline" onClick={() => navigate(mode === 'edit' ? '/invoices' : '/accounts')}>
             <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to Accounts
+            {mode === 'edit' ? 'Back to Invoices' : 'Back to Accounts'}
           </Button>
           <div>
             <h1 className="text-2xl font-bold headline-blue">Invoice Generation</h1>
@@ -454,28 +451,28 @@ const InvoiceGeneration: React.FC<{ mode?: 'edit' }> = ({ mode }) => {
                 <Button variant="outline" onClick={() => setStep('template')}>
                   Back to Templates
                 </Button>
-                <Button onClick={handleSave} disabled={loading} variant="blue">
+                {/* <Button onClick={handleSave} disabled={loading} variant="blue">
                   <Save className="h-4 w-4 mr-2" />
                   Save Draft
-                </Button>
+                </Button> */}
               </div>
               
               <div className="flex items-center space-x-4">
-                <Button 
+                {/* <Button 
                   variant="outline" 
                   onClick={() => setShowCommentModal(true)}
                   disabled={invoiceConfig.status === 'pending-approval'}
                 >
                   <MessageSquarePlus className="h-4 w-4 mr-2" />
                   Add Comment
-                </Button>
+                </Button> */}
                 <Button 
                   onClick={handleGeneratePDF}
                   disabled={loading || invoiceConfig.status === 'pending-approval'}
                   variant="blue"
                 >
                   <FileText className="h-4 w-4 mr-2" />
-                  Generate PDF
+                  {mode === 'edit' ? 'Regenerate Invoice ' : 'Generate PDF'}
                 </Button>
               </div>
             </CardContent>

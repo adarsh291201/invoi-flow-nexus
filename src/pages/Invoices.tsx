@@ -8,7 +8,7 @@ import { Input } from '../components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../components/ui/select';
 import { Badge } from '../components/ui/badge';
 import StatusBadge from '../components/StatusBadge';
-import { Eye, MessageSquare, Check, X, Filter, FileText, Pencil } from 'lucide-react';
+import { Eye, MessageSquare, Check, X, Filter, FileText, Pencil, ChevronUp, ChevronDown } from 'lucide-react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Invoice, InvoiceStatus } from '../types';
 import { useToast } from '../hooks/use-toast';
@@ -99,6 +99,13 @@ const Invoices = () => {
   const previewUrlRef = useRef<string | null>(null);
   const navigate = useNavigate();
 
+  // New state for table functionality
+  const [selectedInvoices, setSelectedInvoices] = useState<string[]>([]);
+  const [sortColumn, setSortColumn] = useState<string>('createdAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+
   // Helper: Get visible columns and their unique values from invoices
   const columnLabels = {
     id: 'Invoice ID',
@@ -145,19 +152,40 @@ const Invoices = () => {
     };
   });
 
-  // In the filter/search logic, use projectId and accountId
+  // Apply filters and sorting
   const filteredInvoices = mappedInvoices.filter(invoice => {
-    for (const col of visibleColumns) {
-      if (selectedFilters[col] && selectedFilters[col].length > 0) {
-        if (!selectedFilters[col].includes(String(invoice[col]))) return false;
-      }
+    const matchesKeyword = keyword === '' || 
+      invoice.invoiceConfigId?.toLowerCase().includes(keyword.toLowerCase()) ||
+      invoice.projectId?.toLowerCase().includes(keyword.toLowerCase()) ||
+      invoice.accountId?.toLowerCase().includes(keyword.toLowerCase()) ||
+      invoice.status?.toLowerCase().includes(keyword.toLowerCase());
+
+    const matchesStatus = selectedStatuses.length === 0 || selectedStatuses.includes(invoice.status);
+    const matchesDepartment = selectedDepartments.length === 0 || selectedDepartments.includes(invoice.accountId || '');
+    const matchesGrade = selectedGrades.length === 0 || selectedGrades.includes(invoice.projectId || '');
+
+    return matchesKeyword && matchesStatus && matchesDepartment && matchesGrade;
+  }).sort((a, b) => {
+    let aValue: any = a[sortColumn as keyof typeof a];
+    let bValue: any = b[sortColumn as keyof typeof b];
+
+    // Handle special cases
+    if (sortColumn === 'amount') {
+      aValue = typeof aValue === 'number' ? aValue : 0;
+      bValue = typeof bValue === 'number' ? bValue : 0;
+    } else if (sortColumn === 'createdAt') {
+      aValue = aValue ? new Date(aValue).getTime() : 0;
+      bValue = bValue ? new Date(bValue).getTime() : 0;
+    } else {
+      aValue = String(aValue || '').toLowerCase();
+      bValue = String(bValue || '').toLowerCase();
     }
-    if (keyword && !(
-      (invoice.projectId && invoice.projectId.toLowerCase().includes(keyword.toLowerCase())) ||
-      (invoice.accountId && invoice.accountId.toLowerCase().includes(keyword.toLowerCase())) ||
-      (invoice.id && String(invoice.id).toLowerCase().includes(keyword.toLowerCase()))
-    )) return false;
-    return true;
+
+    if (sortDirection === 'asc') {
+      return aValue > bValue ? 1 : aValue < bValue ? -1 : 0;
+    } else {
+      return aValue < bValue ? 1 : aValue > bValue ? -1 : 0;
+    }
   });
 
   const handleStatusUpdate = (invoiceId: string, newStatus: InvoiceStatus, comment?: string) => {
@@ -169,21 +197,73 @@ const Invoices = () => {
   };
 
   const canApprove = (invoice: Invoice) => {
-    if (user?.role === 'L2' && invoice.status === 'Pending L2') return true;
-    if (user?.role === 'L3' && invoice.status === 'Pending L3') return true;
+    if (user?.role === 'L1' && invoice.status === 'L1 Pending') return true;
+    if (user?.role === 'L2' && invoice.status === 'L2 Pending') return true;
+    if (user?.role === 'L3' && invoice.status === 'L3 Pending') return true;
     return false;
   };
 
   const canReject = (invoice: Invoice) => {
-    if (user?.role === 'L2' && invoice.status === 'Pending L2') return true;
-    if (user?.role === 'L3' && invoice.status === 'Pending L3') return true;
+    if (user?.role === 'L1' && invoice.status === 'L1 Pending') return true;
+    if (user?.role === 'L2' && invoice.status === 'L2 Pending') return true;
+    if (user?.role === 'L3' && invoice.status === 'L3 Pending') return true;
     return false;
   };
 
   const getNextApprovalStatus = (currentStatus: InvoiceStatus): InvoiceStatus => {
-    if (currentStatus === 'Pending L2') return 'Pending L3';
-    if (currentStatus === 'Pending L3') return 'Approved';
-    return currentStatus;
+    switch (currentStatus) {
+      case 'L1 Pending': return 'L2 Pending';
+      case 'L2 Pending': return 'L3 Pending';
+      case 'L3 Pending': return 'Ready for Dispatch';
+      default: return currentStatus;
+    }
+  };
+
+  // Sorting function
+  const handleSort = (column: string) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Get sort icon
+  const getSortIcon = (column: string) => {
+    if (sortColumn !== column) {
+      return <ChevronUp className="h-4 w-4 opacity-50" />;
+    }
+    return sortDirection === 'asc' ? 
+      <ChevronUp className="h-4 w-4" /> : 
+      <ChevronDown className="h-4 w-4" />;
+  };
+
+  // Selection functions
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedInvoices(paginatedInvoices.map(invoice => invoice.id));
+    } else {
+      setSelectedInvoices([]);
+    }
+  };
+
+  const handleSelectInvoice = (invoiceId: string, checked: boolean) => {
+    if (checked) {
+      setSelectedInvoices(prev => [...prev, invoiceId]);
+    } else {
+      setSelectedInvoices(prev => prev.filter(id => id !== invoiceId));
+    }
+  };
+
+  // Pagination functions
+  const totalPages = Math.ceil(filteredInvoices.length / pageSize);
+  const startIndex = (currentPage - 1) * pageSize;
+  const endIndex = startIndex + pageSize;
+  const paginatedInvoices = filteredInvoices.slice(startIndex, endIndex);
+
+  const handlePageChange = (page: number) => {
+    setCurrentPage(page);
   };
 
   const handlePreview = async (invoiceId: string) => {
@@ -381,68 +461,214 @@ const Invoices = () => {
           ))}
         </div>
       ) : (
-        <Card className="shadow-card">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full border-collapse" style={{ border: `1px solid rgb(6, 65, 115, 0.3)` }}>
-                <thead>
-                  <tr style={{ backgroundColor: 'rgb(6, 65, 115)' }}>
-                    <th className="text-left p-4 text-white font-semibold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Invoice ID</th>
-                    <th className="text-left p-4 text-white font-semibold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Project</th>
-                    <th className="text-left p-4 text-white font-semibold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Client</th>
-                    <th className="text-left p-4 text-white font-semibold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Amount</th>
-                    <th className="text-left p-4 text-white font-semibold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Status</th>
-                    <th className="text-left p-4 text-white font-semibold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Period</th>
-                    <th className="text-left p-4 text-white font-semibold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>Actions</th>
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200">
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse" style={{ border: `1px solid rgb(6, 65, 115, 0.3)` }}>
+              <thead>
+                <tr style={{ backgroundColor: 'rgb(6, 65, 115)' }}>
+                  <th className="text-left p-4 text-white font-semibold" style={{ fontFamily: 'Inter, system-ui, sans-serif' }}>
+                    <div className="flex items-center">
+                      <Checkbox
+                        checked={selectedInvoices.length === paginatedInvoices.length && paginatedInvoices.length > 0}
+                        onCheckedChange={handleSelectAll}
+                        className="mr-2"
+                      />
+                    </div>
+                  </th>
+                  <th 
+                    className="text-left p-4 text-white font-semibold cursor-pointer transition-colors" 
+                    style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+                    onClick={() => handleSort('invoiceConfigId')}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(4, 50, 90)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(6, 65, 115)'}
+                  >
+                    <div className="flex items-center justify-between">
+                      INVOICE ID
+                      {getSortIcon('invoiceConfigId')}
+                    </div>
+                  </th>
+                  <th 
+                    className="text-left p-4 text-white font-semibold cursor-pointer transition-colors" 
+                    style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+                    onClick={() => handleSort('projectId')}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(4, 50, 90)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(6, 65, 115)'}
+                  >
+                    <div className="flex items-center justify-between">
+                      PROJECT
+                      {getSortIcon('projectId')}
+                    </div>
+                  </th>
+                  <th 
+                    className="text-left p-4 text-white font-semibold cursor-pointer transition-colors" 
+                    style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+                    onClick={() => handleSort('accountId')}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(4, 50, 90)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(6, 65, 115)'}
+                  >
+                    <div className="flex items-center justify-between">
+                      CLIENT
+                      {getSortIcon('accountId')}
+                    </div>
+                  </th>
+                  <th 
+                    className="text-left p-4 text-white font-semibold cursor-pointer transition-colors" 
+                    style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+                    onClick={() => handleSort('amount')}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(4, 50, 90)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(6, 65, 115)'}
+                  >
+                    <div className="flex items-center justify-between">
+                      AMOUNT
+                      {getSortIcon('amount')}
+                    </div>
+                  </th>
+                  <th 
+                    className="text-left p-4 text-white font-semibold cursor-pointer transition-colors" 
+                    style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+                    onClick={() => handleSort('status')}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(4, 50, 90)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(6, 65, 115)'}
+                  >
+                    <div className="flex items-center justify-between">
+                      STATUS
+                      {getSortIcon('status')}
+                    </div>
+                  </th>
+                  <th 
+                    className="text-left p-4 text-white font-semibold cursor-pointer transition-colors" 
+                    style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+                    onClick={() => handleSort('month')}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(4, 50, 90)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(6, 65, 115)'}
+                  >
+                    <div className="flex items-center justify-between">
+                      PERIOD
+                      {getSortIcon('month')}
+                    </div>
+                  </th>
+                  <th 
+                    className="text-left p-4 text-white font-semibold cursor-pointer transition-colors" 
+                    style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
+                    onClick={() => handleSort('createdAt')}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgb(4, 50, 90)'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'rgb(6, 65, 115)'}
+                  >
+                    <div className="flex items-center justify-between">
+                      CREATED DATE
+                      {getSortIcon('createdAt')}
+                    </div>
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedInvoices.map((invoice) => (
+                  <tr 
+                    key={invoice.id} 
+                    className="border-b hover:bg-gray-50 cursor-pointer transition-colors"
+                    onClick={() => navigate(`/invoice/${invoice.invoiceConfigId}`)}
+                    style={{ borderColor: 'rgb(6, 65, 115, 0.2)' }}
+                  >
+                    <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                      <Checkbox
+                        checked={selectedInvoices.includes(invoice.id)}
+                        onCheckedChange={(checked) => handleSelectInvoice(invoice.id, checked as boolean)}
+                      />
+                    </td>
+                    <td className="p-4 font-mono text-sm font-medium text-gray-900">{invoice.invoiceConfigId}</td>
+                    <td className="p-4 font-medium text-gray-900">{invoice.projectId || '-'}</td>
+                    <td className="p-4 font-medium text-gray-900">{invoice.accountId || '-'}</td>
+                    <td className="p-4 font-semibold text-gray-900">
+                      ${typeof invoice.amount === 'number' ? invoice.amount.toLocaleString() : '-'}
+                    </td>
+                    <td className="p-4">
+                      <StatusBadge status={invoice.status} />
+                    </td>
+                    <td className="p-4 font-medium text-gray-900">{invoice.month} {invoice.year}</td>
+                    <td className="p-4 text-sm text-gray-600">
+                      {invoice.createdAt ? new Date(invoice.createdAt).toLocaleDateString('en-GB') : '-'}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {mappedInvoices.map((invoice) => (
-                    <tr 
-                      key={invoice.id} 
-                      className="border-b hover:bg-muted/50 cursor-pointer"
-                      onClick={() => navigate(`/invoice/${invoice.invoiceConfigId}`)}
-                      style={{ borderColor: 'rgb(6, 65, 115)' }}
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200">
+            <div className="flex items-center space-x-2">
+              <button
+                onClick={() => handlePageChange(currentPage - 1)}
+                disabled={currentPage === 1}
+                className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Prev
+              </button>
+              
+              {/* Page numbers */}
+              <div className="flex items-center space-x-1">
+                {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                  const pageNum = i + 1;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => handlePageChange(pageNum)}
+                      className={`px-3 py-1 text-sm border rounded ${
+                        currentPage === pageNum 
+                          ? 'bg-[rgb(6,65,115)] text-white border-[rgb(6,65,115)]' 
+                          : 'hover:bg-gray-50'
+                      }`}
                     >
-                      <td className="p-4 font-mono text-sm font-medium">{invoice.invoiceConfigId}</td>
-                      <td className="p-4 font-medium">{invoice.projectId}</td>
-                      <td className="p-4 font-medium">{invoice.accountId}</td>
-                      <td className="p-4 font-semibold">${typeof invoice.amount === 'number' ? invoice.amount.toLocaleString() : '-'}</td>
-                      <td className="p-4">
-                        <StatusBadge status={invoice.status} />
-                      </td>
-                      <td className="p-4 font-medium">{invoice.month} {invoice.year}</td>
-                      <td className="p-4">
-                        <div className="flex space-x-1" onClick={(e) => e.stopPropagation()}>
-                          {canApprove(invoice) && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-status-approved"
-                              onClick={() => handleStatusUpdate(invoice.id, getNextApprovalStatus(invoice.status))}
-                            >
-                              <Check className="h-4 w-4" />
-                            </Button>
-                          )}
-                          {canReject(invoice) && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="text-status-rejected"
-                              onClick={() => handleStatusUpdate(invoice.id, 'Rejected', 'Rejected via quick action')}
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                
+                {totalPages > 5 && (
+                  <>
+                    <span className="px-2">...</span>
+                    <button
+                      onClick={() => handlePageChange(totalPages)}
+                      className={`px-3 py-1 text-sm border rounded ${
+                        currentPage === totalPages 
+                          ? 'bg-[rgb(6,65,115)] text-white border-[rgb(6,65,115)]' 
+                          : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      {totalPages}
+                    </button>
+                  </>
+                )}
+              </div>
+              
+              <button
+                onClick={() => handlePageChange(currentPage + 1)}
+                disabled={currentPage === totalPages}
+                className="px-3 py-1 text-sm border rounded hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Next
+              </button>
             </div>
-          </CardContent>
-        </Card>
+            
+            <div className="flex items-center space-x-2 text-sm text-gray-600">
+              <span>Total Row Count: {filteredInvoices.length}</span>
+              <span>Page Size</span>
+              <select
+                value={pageSize}
+                onChange={(e) => {
+                  setPageSize(Number(e.target.value));
+                  setCurrentPage(1);
+                }}
+                className="border rounded px-2 py-1"
+              >
+                <option value={10}>10</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+              </select>
+            </div>
+          </div>
+        </div>
       )}
 
       {filteredInvoices.length === 0 && (

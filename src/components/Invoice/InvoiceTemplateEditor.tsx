@@ -147,6 +147,10 @@ const InvoiceTemplateEditor: React.FC<InvoiceTemplateEditorProps> = ({
     const updatedData = [...currentData, newRow];
     
     handleTemplateDataUpdate(updatedData, tableName);
+    
+    // Automatically start editing the newly added row
+    setEditingRowId(newRow.id);
+    setEditingData({ ...newRow });
   };
 
   // Delete row

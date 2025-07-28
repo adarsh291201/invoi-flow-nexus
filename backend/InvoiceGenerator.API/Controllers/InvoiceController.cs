@@ -127,6 +127,97 @@ namespace InvoiceGenerator.API.Controllers
             return Ok(invoices);
         }
 
+        // GET /invoice/dashboard-stats - Get dashboard statistics
+        [HttpGet("dashboard-stats")]
+        public async Task<IActionResult> GetDashboardStats()
+        {
+            try
+            {
+                var allInvoices = await _context.Invoices.ToListAsync();
+                
+                var totalInvoices = allInvoices.Count;
+                var pendingApproval = allInvoices.Count(i => i.Status.Contains("Pending"));
+                var approved = allInvoices.Count(i => i.Status == "Ready for Dispatch");
+                var rejected = allInvoices.Count(i => i.Status.Contains("Rejected"));
+                
+                // Calculate total amount from invoices
+                var totalAmount = 0.0;
+                foreach (var invoice in allInvoices)
+                {
+                    try
+                    {
+                        if (!string.IsNullOrEmpty(invoice.TotalsJson))
+                        {
+                            var totals = JsonSerializer.Deserialize<JsonElement>(invoice.TotalsJson);
+                            if (totals.TryGetProperty("total", out var totalElement) && totalElement.TryGetDouble(out var total))
+                            {
+                                totalAmount += total;
+                            }
+                        }
+                    }
+                    catch
+                    {
+                        // Skip invoices with invalid totals
+                    }
+                }
+
+                // Calculate monthly trend for the last 6 months
+                var monthlyTrend = new List<object>();
+                var currentDate = DateTime.UtcNow;
+                
+                for (int i = 5; i >= 0; i--)
+                {
+                    var targetDate = currentDate.AddMonths(-i);
+                    var monthInvoices = allInvoices.Where(i => 
+                        i.CreatedAt.Month == targetDate.Month && 
+                        i.CreatedAt.Year == targetDate.Year).ToList();
+                    
+                    var monthAmount = 0.0;
+                    foreach (var invoice in monthInvoices)
+                    {
+                        try
+                        {
+                            if (!string.IsNullOrEmpty(invoice.TotalsJson))
+                            {
+                                var totals = JsonSerializer.Deserialize<JsonElement>(invoice.TotalsJson);
+                                if (totals.TryGetProperty("total", out var totalElement) && totalElement.TryGetDouble(out var total))
+                                {
+                                    monthAmount += total;
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // Skip invoices with invalid totals
+                        }
+                    }
+                    
+                    monthlyTrend.Add(new
+                    {
+                        month = targetDate.ToString("MMM"),
+                        amount = monthAmount,
+                        count = monthInvoices.Count
+                    });
+                }
+
+                var stats = new
+                {
+                    totalInvoices,
+                    pendingApproval,
+                    approved,
+                    rejected,
+                    totalAmount,
+                    monthlyTrend
+                };
+
+                return Ok(stats);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { error = "Failed to get dashboard stats", details = ex.Message });
+            }
+        }
+
         [HttpGet]
         public IActionResult GetAll()
         {
@@ -134,7 +225,24 @@ namespace InvoiceGenerator.API.Controllers
             return Ok(invoices);
         }
 
-        // GET /invoice/{id} - Preview Invoice by config id
+        // GET /invoice/exists?projectId=...&month=...&year=...
+        [HttpGet("exists")]
+        public IActionResult CheckInvoiceExists([FromQuery] string projectId, [FromQuery] string month, [FromQuery] int year)
+        {
+            var invoice = _context.Invoices.FirstOrDefault(i => i.ProjectId == projectId && i.Month == month && i.Year == year);
+            if (invoice != null)
+            {
+                return Ok(new {
+                    exists = true,
+                    invoiceId = invoice.InvoiceConfigId,
+                    previewUrl = invoice.PreviewUrl,
+                    status = invoice.Status
+                });
+            }
+            return Ok(new { exists = false });
+        }
+
+        // GET /invoice/{id} - Preview Invoice by config id (generic route, placed last)
         [HttpGet("{id}")]
         public async Task<IActionResult> GetInvoice(string id)
         {
@@ -161,23 +269,6 @@ namespace InvoiceGenerator.API.Controllers
                 previewUrl = invoice.PreviewUrl,
                 downloadUrl = invoice.DownloadUrl
             });
-        }
-
-        // GET /invoice/exists?projectId=...&month=...&year=...
-        [HttpGet("exists")]
-        public IActionResult CheckInvoiceExists([FromQuery] string projectId, [FromQuery] string month, [FromQuery] int year)
-        {
-            var invoice = _context.Invoices.FirstOrDefault(i => i.ProjectId == projectId && i.Month == month && i.Year == year);
-            if (invoice != null)
-            {
-                return Ok(new {
-                    exists = true,
-                    invoiceId = invoice.InvoiceConfigId,
-                    previewUrl = invoice.PreviewUrl,
-                    status = invoice.Status
-                });
-            }
-            return Ok(new { exists = false });
         }
 
         // GET /invoice/{id}/download

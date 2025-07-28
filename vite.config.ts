@@ -10,7 +10,8 @@ export default defineConfig(({ mode }) => ({
     port: 8080,
     proxy: {
       '/invoice': 'http://localhost:5133'
-    }
+    },
+    historyApiFallback: true
   },
   plugins: [
     react(),

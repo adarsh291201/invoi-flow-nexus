@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState } from '../store';
-import { setStats } from '../store/slices/dashboardSlice';
+import { setStats, setLoading, setError } from '../store/slices/dashboardSlice';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card';
 import { FileText, Clock, CheckCircle, XCircle, DollarSign, TrendingUp } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -9,27 +9,28 @@ import { Link } from 'react-router-dom';
 
 const Dashboard = () => {
   const { user } = useSelector((state: RootState) => state.auth);
-  const { stats } = useSelector((state: RootState) => state.dashboard);
+  const { stats, loading, error } = useSelector((state: RootState) => state.dashboard);
   const dispatch = useDispatch();
 
   useEffect(() => {
-    // Mock dashboard data
-    const mockStats = {
-      totalInvoices: 156,
-      pendingApproval: 23,
-      approved: 128,
-      rejected: 5,
-      totalAmount: 245600,
-      monthlyTrend: [
-        { month: 'Jan', amount: 45000, count: 15 },
-        { month: 'Feb', amount: 52000, count: 18 },
-        { month: 'Mar', amount: 48000, count: 16 },
-        { month: 'Apr', amount: 61000, count: 21 },
-        { month: 'May', amount: 55000, count: 19 },
-        { month: 'Jun', amount: 63000, count: 22 },
-      ],
+    const fetchDashboardStats = async () => {
+      try {
+        dispatch(setLoading(true));
+        const response = await fetch('/invoice/dashboard-stats');
+        if (!response.ok) {
+          throw new Error('Failed to fetch dashboard stats');
+        }
+        const data = await response.json();
+        dispatch(setStats(data));
+      } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+        dispatch(setError('Failed to load dashboard statistics'));
+      } finally {
+        dispatch(setLoading(false));
+      }
     };
-    dispatch(setStats(mockStats));
+
+    fetchDashboardStats();
   }, [dispatch]);
 
   const getGreeting = () => {
@@ -70,8 +71,35 @@ const Dashboard = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="flex items-center space-x-2">
+          <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-600"></div>
+          <span>Loading dashboard...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="text-center">
+          <p className="text-red-600 mb-2">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!stats) {
-    return <div>Loading...</div>;
+    return <div>No data available</div>;
   }
 
   return (
